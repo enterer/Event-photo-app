@@ -1,0 +1,6 @@
+.aws-sam/
+.venv/
+__pycache__/
+*.zip
+photos/
+.env

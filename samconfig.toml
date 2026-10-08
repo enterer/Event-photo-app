@@ -1,0 +1,13 @@
+# Platform (business) stack. Deliberately NOT eu-west-1: that region runs the wedding.
+version = 0.1
+
+[default.global.parameters]
+stack_name = "eventphotos-dev"
+region = "us-east-1"
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+tags = "project=platform env=dev"
+parameter_overrides = "Stage=dev"

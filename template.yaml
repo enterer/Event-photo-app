@@ -1,0 +1,190 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Event photo platform (multi-event). Week 1 skeleton - organisations, events, sign-in.
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  DashboardOrigin:
+    Type: String
+    Default: "*"
+    Description: Origin of the dashboard site. Tighten once hosted.
+
+Rules:
+  # Hard stop: this stack must never be deployed into the wedding's region.
+  NotWeddingRegion:
+    Assertions:
+      - Assert: !Not [!Equals [!Ref "AWS::Region", eu-west-1]]
+        AssertDescription: eu-west-1 runs the wedding. Deploy the platform to us-east-1.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 20
+    MemorySize: 512
+    Architectures: [arm64]
+    Tags:
+      project: platform
+      stage: !Ref Stage
+
+Resources:
+  PlatformTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - { Key: project, Value: platform }
+
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbandonedIncoming
+            Status: Enabled
+            Prefix: incoming/
+            ExpirationInDays: 7
+      CorsConfiguration:
+        CorsRules:
+          - AllowedMethods: [GET, POST]
+            AllowedOrigins: ["*"]
+            AllowedHeaders: ["*"]
+            MaxAge: 3600
+      Tags:
+        - { Key: project, Value: platform }
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub eventphotos-${Stage}
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 10
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireUppercase: false
+          RequireSymbols: false
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - { Name: verified_email, Priority: 1 }
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows: [ALLOW_USER_SRP_AUTH, ALLOW_REFRESH_TOKEN_AUTH]
+      PreventUserExistenceErrors: ENABLED
+
+  PlatformApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: [!Ref DashboardOrigin]
+        AllowMethods: [GET, POST, PUT, DELETE, OPTIONS]
+        AllowHeaders: [content-type, authorization]
+        MaxAge: 3600
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 50
+        ThrottlingRateLimit: 25
+      Auth:
+        Authorizers:
+          Cognito:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+              audience: [!Ref UserPoolClient]
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/api/
+      Handler: app.handler
+      Environment:
+        Variables:
+          TABLE: !Ref PlatformTable
+          BUCKET: !Ref MediaBucket
+          STAGE: !Ref Stage
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref PlatformTable }
+        - S3CrudPolicy: { BucketName: !Ref MediaBucket }
+      Events:
+        Me:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /me
+            Method: GET
+            Auth:
+              Authorizer: Cognito
+        CreateOrg:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /orgs
+            Method: POST
+            Auth:
+              Authorizer: Cognito
+        ListEvents:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /orgs/{orgId}/events
+            Method: GET
+            Auth:
+              Authorizer: Cognito
+        CreateEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /orgs/{orgId}/events
+            Method: POST
+            Auth:
+              Authorizer: Cognito
+        GetEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /orgs/{orgId}/events/{eventId}
+            Method: GET
+            Auth:
+              Authorizer: Cognito
+        PublicEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /e/{slug}
+            Method: GET
+
+Outputs:
+  ApiUrl:
+    Value: !Sub https://${PlatformApi}.execute-api.${AWS::Region}.amazonaws.com
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+  MediaBucketName:
+    Value: !Ref MediaBucket

@@ -1,0 +1,12 @@
+version: 1
+applications:
+  - appRoot: frontend/dashboard
+    frontend:
+      phases:
+        build:
+          commands:
+            - echo "Static dashboard, nothing to build"
+      artifacts:
+        baseDirectory: .
+        files:
+          - '**/*'

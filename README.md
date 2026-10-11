@@ -4,7 +4,7 @@ Multi-event version of the wedding selfie photo app, for photographers and event
 
 **This repo never deploys to eu-west-1.** That region runs the wedding (`wedding-photos` stack, separate repo). The template refuses eu-west-1, and `scripts/deploy.sh` refuses the wedding region and stack name.
 
-## Status: week 1
+## Status: week 1 plus dev dashboard
 
 - Data table, media bucket, Cognito sign-in, HTTP API with a JWT authorizer
 - Organisations (create, membership) and events (create, list, view, public guest-page info)
@@ -20,15 +20,12 @@ cd ~/Event-photo-app
 
 Settings (region `us-east-1`, stack `eventphotos-dev`, tags) are in `samconfig.toml`, so there are no prompts beyond confirming the change set.
 
-## Try it
+## Dev dashboard
 
-1. Create a test user: Cognito console in us-east-1 → user pool `eventphotos-dev` → Create user.
-2. Get a token and call the API (a sign-in page comes in week 3 with the dashboard):
+`frontend/dashboard/` is the photographer dashboard (sign up, sign in, studio setup, create and view events). It talks to Cognito directly, with no extra libraries.
 
-```bash
-aws cognito-idp admin-initiate-auth --region us-east-1 --user-pool-id <UserPoolId> \
-  --client-id <UserPoolClientId> --auth-flow ADMIN_USER_PASSWORD_AUTH \
-  --auth-parameters USERNAME=<email>,PASSWORD=<password>
-```
+1. Fill in `frontend/dashboard/config.js` from the stack outputs (`ApiUrl`, `UserPoolClientId`).
+2. Host it with Amplify: new app → GitHub → `Event-photo-app`, branch `main`, monorepo root `frontend/dashboard` (it reads `amplify.yml`). Use the us-east-1 console so it sits beside the stack.
+3. Open the Amplify link, create an account, verify with the emailed code, set up your studio, create an event.
 
-(Enable `ALLOW_ADMIN_USER_PASSWORD_AUTH` on the app client for this test only, or wait for the dashboard.)
+Cognito's default email sender allows about 50 emails a day, which is fine for dev.

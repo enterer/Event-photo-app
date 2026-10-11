@@ -189,26 +189,27 @@
         <p>For security we only store a scrambled version, so this is the only time they're shown. Keep them in your password manager.</p>
         <div class="copyrow"><label>Guest code</label><code id="sGuest"></code><button class="btn ghost" type="button" data-copy="sGuest">Copy</button></div>
         <div class="copyrow"><label>Upload key</label><code id="sUpload"></code><button class="btn ghost" type="button" data-copy="sUpload">Copy</button></div>
+        <div class="copyrow"><label>Guest link + code</label><code id="sGuestLink"></code><button class="btn ghost" type="button" data-copy="sGuestLink">Copy</button></div>
+        <div class="copyrow"><label>Photographer link</label><code id="sUploadLink"></code><button class="btn ghost" type="button" data-copy="sUploadLink">Copy</button></div>
       </div>
 
       <div class="grid2">
         <div class="card">
           <h2>Details</h2>
           <dl class="kv">
-            <dt>Guest link</dt><dd id="evLink"></dd>
+            <dt>Guest link</dt><dd><a id="evLink" target="_blank" rel="noopener"></a></dd>
             <dt>Status</dt><dd id="evStatus"></dd>
             <dt>Photos deleted</dt><dd id="evDelete"></dd>
             <dt>Event ID</dt><dd id="evId" style="font-family:ui-monospace,Consolas,monospace;font-size:13px"></dd>
           </dl>
         </div>
         <div class="card todo">
-          <h2>Coming next</h2>
-          Being built for this event page:
+          <h2>How it works</h2>
           <ul>
-            <li>QR code and photographer upload link</li>
-            <li>Review queue, AI sorting rules, couple or host recognition</li>
-            <li>Guest stats and delete controls</li>
+            <li>Send the photographer link to whoever uploads. Unsorted photos are sorted by AI; anything uncertain stays private.</li>
+            <li>Share the guest link and guest code (for example on a QR card). Guests take a selfie and see the shared photos plus the ones they're in.</li>
           </ul>
+          <p style="margin:12px 0 0">Coming next: QR code, review queue, sorting rules, host recognition, stats.</p>
         </div>
       </div>
     </section>
@@ -432,27 +433,35 @@
       b.type = "button"; b.className = "event";
       const name = document.createElement("span"); name.className = "name"; name.textContent = ev.name;
       const pill = document.createElement("span"); pill.className = "pill" + (isPast(ev) ? " past" : ""); pill.textContent = isPast(ev) ? "Past" : "Upcoming";
-      const meta = document.createElement("span"); meta.className = "meta"; meta.textContent = `${range(ev)} · /e/${ev.slug}`;
+      const meta = document.createElement("span"); meta.className = "meta"; meta.textContent = `${range(ev)} · ${ev.slug}`;
       b.append(name, pill, meta);
       b.addEventListener("click", () => openEvent(ev));
       $("eventsList").appendChild(b);
     });
   }
 
-  function guestLink(ev) { return cfg.guestBaseUrl ? `${cfg.guestBaseUrl.replace(/\/$/, "")}/e/${ev.slug}` : `/e/${ev.slug} (guest pages not built yet)`; }
+  const siteBase = () => (cfg.guestBaseUrl || location.origin + location.pathname.replace(/[^/]*$/, "")).replace(/\/?$/, "/");
+  function guestLink(ev) { return `${siteBase()}guest.html?e=${ev.slug}`; }
+  function uploadLink(ev, key) { return `${siteBase()}upload.html?e=${ev.slug}#k=${encodeURIComponent(key)}`; }
 
   function openEvent(ev, secrets) {
     showOnly("eventView");
     $("evName").textContent = ev.name;
     $("evDates").textContent = range(ev);
     $("evLink").textContent = guestLink(ev);
+    $("evLink").href = guestLink(ev);
     $("evStatus").textContent = ev.status === "active" ? "Active" : ev.status;
     $("evDelete").textContent = fmt(ev.deleteAfter);
     $("evId").textContent = ev.eventId;
     $("secretBox").hidden = !secrets;
-    if (secrets) { $("sGuest").textContent = secrets.guestCode; $("sUpload").textContent = secrets.uploadKey; }
+    if (secrets) {
+      $("sGuest").textContent = secrets.guestCode;
+      $("sUpload").textContent = secrets.uploadKey;
+      $("sGuestLink").textContent = `${guestLink(ev)}&code=${secrets.guestCode}`;
+      $("sUploadLink").textContent = uploadLink(ev, secrets.uploadKey);
+    }
   }
-  $("backBtn").addEventListener("click", () => { $("sGuest").textContent = ""; $("sUpload").textContent = ""; loadEvents(); });
+  $("backBtn").addEventListener("click", () => { ["sGuest", "sUpload", "sGuestLink", "sUploadLink"].forEach((id) => ($(id).textContent = "")); loadEvents(); });
 
   document.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
     try { await navigator.clipboard.writeText($(b.dataset.copy).textContent); b.textContent = "Copied"; setTimeout(() => (b.textContent = "Copy"), 1500); } catch {}

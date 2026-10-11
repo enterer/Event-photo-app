@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: Event photo platform (multi-event). Week 1 skeleton - organisations, events, sign-in.
+Description: Event photo platform (multi-event) - organisations, events, sign-in, guest selfie access, photographer uploads, AI sorting.
 
 Parameters:
   Stage:
@@ -11,6 +11,14 @@ Parameters:
     Type: String
     Default: "*"
     Description: Origin of the dashboard site. Tighten once hosted.
+  ModelId:
+    Type: String
+    Default: us.anthropic.claude-haiku-4-5-20251001-v1:0
+    Description: Bedrock inference profile used to sort unsorted photos.
+  PublicConfidence:
+    Type: Number
+    Default: 0.8
+    Description: The AI must be at least this sure (0-1) before marking a photo public.
 
 Rules:
   # Hard stop: this stack must never be deployed into the wedding's region.
@@ -131,6 +139,10 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref PlatformTable }
         - S3CrudPolicy: { BucketName: !Ref MediaBucket }
+        - Statement:
+            - Effect: Allow
+              Action: rekognition:SearchFacesByImage
+              Resource: !Sub arn:aws:rekognition:${AWS::Region}:${AWS::AccountId}:collection/ev-*
       Events:
         Me:
           Type: HttpApi
@@ -178,6 +190,75 @@ Resources:
             ApiId: !Ref PlatformApi
             Path: /e/{slug}
             Method: GET
+        GuestMatch:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /e/{slug}/match
+            Method: POST
+        GuestGallery:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /e/{slug}/gallery
+            Method: GET
+        UploadUrls:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /e/{slug}/upload-urls
+            Method: POST
+        UploadGuide:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /e/{slug}/upload-guide
+            Method: POST
+
+  ProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/processor/
+      Handler: app.handler
+      Timeout: 180
+      MemorySize: 2048
+      Environment:
+        Variables:
+          TABLE: !Ref PlatformTable
+          MODEL_ID: !Ref ModelId
+          PUBLIC_CONFIDENCE: !Ref PublicConfidence
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref PlatformTable }
+        - Statement:
+            # Bucket matched by name pattern to avoid a circular dependency with the bucket's notification.
+            - Effect: Allow
+              Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+              Resource: !Sub "arn:aws:s3:::${AWS::StackName}-mediabucket-*/*"
+            - Effect: Allow
+              Action: s3:ListBucket
+              Resource: !Sub "arn:aws:s3:::${AWS::StackName}-mediabucket-*"
+            - Effect: Allow
+              Action: [rekognition:IndexFaces, rekognition:CreateCollection, rekognition:SearchFacesByImage, rekognition:ListFaces]
+              Resource: !Sub arn:aws:rekognition:${AWS::Region}:${AWS::AccountId}:collection/ev-*
+            - Effect: Allow
+              Action: rekognition:DetectFaces
+              Resource: "*"
+            - Effect: Allow
+              Action: bedrock:InvokeModel
+              Resource:
+                - !Sub arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/*
+                - arn:aws:bedrock:*::foundation-model/anthropic.*
+      Events:
+        NewPhoto:
+          Type: S3
+          Properties:
+            Bucket: !Ref MediaBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: incoming/
 
 Outputs:
   ApiUrl:

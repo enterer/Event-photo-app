@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Event photos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;1,6..96,400&family=Jost:wght@400;500&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<style>
+  :root {
+    --paper: #faf5f6;
+    --ink: #2e1a33;
+    --gold: #a8822a;
+    --mist: #7d6f80;
+    --line: #e6dbe0;
+    --white: #ffffff;
+    --danger: #9b2c3a;
+    --display: "Bodoni Moda", "Didot", Georgia, serif;
+    --body: "Jost", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); }
+  body {
+    font: 400 1rem/1.55 var(--body);
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    min-height: 100vh;
+  }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+  [hidden] { display: none !important; }
+
+  .screen { max-width: 30rem; margin: 0 auto; padding: 3rem 1.5rem 2rem; text-align: center; }
+
+  /* Welcome */
+  .names {
+    font: 400 clamp(2.6rem, 13vw, 4rem)/1.02 var(--display);
+    margin: 0 0 .75rem;
+    letter-spacing: -.01em;
+  }
+  .names span { display: block; }
+  .names .and { font-style: italic; font-size: .5em; color: var(--mist); margin: .25em 0; }
+  .date { color: var(--mist); margin: 0 0 2.5rem; }
+
+  /* The cameo: the one decorative element, reused as the camera frame */
+  .cameo {
+    position: relative;
+    width: min(68vw, 15rem);
+    aspect-ratio: 3 / 4;
+    margin: 0 auto 2rem;
+    border-radius: 50%;
+    border: 1px solid var(--gold);
+    padding: 7px;
+  }
+  .cameo::after {
+    content: ""; position: absolute; inset: 3px;
+    border-radius: 50%; border: 1px solid var(--gold); opacity: .45; pointer-events: none;
+  }
+  .cameo-inner {
+    width: 100%; height: 100%; border-radius: 50%; overflow: hidden;
+    background: var(--line); display: grid; place-items: center;
+  }
+  .cameo-inner video, .cameo-inner img { width: 100%; height: 100%; object-fit: cover; }
+  .cameo-inner video { transform: scaleX(-1); }
+  .cameo-hint { font: italic 400 1.1rem/1.3 var(--display); color: var(--mist); padding: 0 1.5rem; }
+
+  .field { text-align: left; margin: 0 0 1rem; }
+  .field label { display: block; font-weight: 500; margin-bottom: .35rem; }
+  .field input[type=text] {
+    width: 100%; padding: .8rem 1rem; background: var(--white);
+    border: 1px solid var(--line); border-radius: 6px; font-size: 1.1rem; letter-spacing: .08em;
+  }
+  .consent { display: flex; gap: .65rem; text-align: left; font-size: .9rem; color: var(--mist); margin: 0 0 1.5rem; }
+  .consent input { margin-top: .3rem; accent-color: var(--ink); flex: none; }
+
+  .btn {
+    display: inline-block; width: 100%; padding: .95rem 1.25rem; border-radius: 999px;
+    border: 1px solid var(--ink); background: var(--ink); color: var(--paper);
+    font-weight: 500; cursor: pointer;
+  }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-quiet { background: transparent; color: var(--ink); margin-top: .75rem; }
+  .link { background: none; border: 0; color: var(--mist); text-decoration: underline; cursor: pointer; padding: .5rem; }
+  .error { color: var(--danger); min-height: 1.5em; margin: .75rem 0 0; }
+  .lead { margin: 0 0 1.5rem; }
+
+  /* Top bar with the photographer entry point */
+  .topbar { display: flex; justify-content: flex-end; padding: .75rem 1rem 0; max-width: 72rem; margin: 0 auto; }
+  .topbar button {
+    background: transparent; border: 1px solid var(--line); border-radius: 999px;
+    padding: .45rem 1rem; font-size: .9rem; color: var(--ink); cursor: pointer;
+  }
+  .topbar button:hover { border-color: var(--gold); }
+  .topbar { gap: .5rem; align-items: center; }
+  .topbar-link { color: var(--mist); font-size: .9rem; padding: .45rem .75rem; text-decoration: none; }
+  .topbar-link:hover { color: var(--ink); text-decoration: underline; }
+  dialog {
+    border: 1px solid var(--line); border-radius: 12px; padding: 1.75rem 1.5rem 1.25rem;
+    width: min(26rem, calc(100vw - 2rem)); background: var(--paper); color: var(--ink);
+  }
+  dialog::backdrop { background: rgba(46, 26, 51, .45); }
+  dialog h2 { font: 400 1.6rem/1.2 var(--display); margin: 0 0 .5rem; }
+  dialog p { color: var(--mist); margin: 0 0 1.25rem; }
+  .dialog-actions { display: flex; gap: .5rem; margin-top: 1rem; }
+  .dialog-actions .btn { margin: 0; flex: 1; }
+
+  /* Gallery */
+  .gallery-head {
+    max-width: 72rem; margin: 0 auto; padding: 2rem 1rem 1rem;
+    display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem;
+  }
+  .gallery-head h1 { font: 400 clamp(1.8rem, 6vw, 2.6rem)/1.1 var(--display); margin: 0; }
+  .gallery-head p { margin: .25rem 0 0; color: var(--mist); }
+  .tabs { display: flex; gap: .25rem; border: 1px solid var(--line); border-radius: 999px; padding: .25rem; background: var(--white); }
+  .tabs button { border: 0; background: none; padding: .45rem 1rem; border-radius: 999px; cursor: pointer; }
+  .tabs button[aria-pressed=true] { background: var(--ink); color: var(--paper); }
+  .grid {
+    max-width: 72rem; margin: 0 auto; padding: 0 1rem 3rem;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: .4rem;
+  }
+  .grid button { padding: 0; border: 0; background: var(--line); aspect-ratio: 1; cursor: pointer; overflow: hidden; }
+  .grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .empty { grid-column: 1 / -1; text-align: center; color: var(--mist); padding: 3rem 1rem; }
+  .gallery-foot { text-align: center; padding-bottom: 2rem; }
+
+  /* Photographer credit */
+  .credit {
+    max-width: 30rem; margin: 2rem auto 0; padding: 1.25rem 1.5rem; text-align: center;
+    border-top: 1px solid var(--line); color: var(--mist);
+  }
+  .credit-label { font-size: .75rem; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); margin: 0 0 .6rem; }
+  .credit img { max-height: 56px; max-width: 200px; object-fit: contain; display: block; margin: 0 auto .5rem; }
+  .credit-name { font: 400 1.35rem/1.2 var(--display); color: var(--ink); margin: 0; }
+  .credit-tagline { margin: .25rem 0 0; font-size: .95rem; }
+  .credit-links { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin-top: .9rem; }
+  .credit-links a {
+    font-size: .9rem; color: var(--ink); text-decoration: none; border: 1px solid var(--line);
+    border-radius: 999px; padding: .4rem .95rem; background: var(--white);
+  }
+  .credit-links a:hover { border-color: var(--gold); }
+
+  /* Lightbox */
+  .lightbox {
+    position: fixed; inset: 0; background: rgb(30, 16, 34); color: var(--paper);
+    display: flex; flex-direction: column; z-index: 10;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  .lightbox-bar { display: flex; justify-content: space-between; align-items: center; padding: .75rem 1rem; gap: .5rem; }
+  .lightbox-bar button, .lightbox-bar a {
+    color: var(--paper); background: none; border: 1px solid rgba(250,245,246,.35);
+    border-radius: 999px; padding: .45rem 1rem; text-decoration: none; cursor: pointer;
+  }
+  /* The stage takes the space between the bars; the photo is fitted inside it, never cropped or overflowing. */
+  .lightbox-stage { flex: 1 1 auto; position: relative; min-height: 0; margin: 0 .5rem; }
+  .lightbox-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .lightbox-nav { display: flex; justify-content: space-between; padding: .75rem 1rem 1rem; }
+
+  .spinner {
+    width: 2rem; height: 2rem; border-radius: 50%;
+    border: 2px solid var(--line); border-top-color: var(--gold);
+    animation: spin 1s linear infinite; margin: 0 auto 1rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button type="button" id="uploadEntryBtn">Upload photos</button>
+</div>
+
+<dialog id="uploadDialog" aria-labelledby="uploadDialogTitle">
+  <form id="uploadCodeForm" method="dialog" novalidate>
+    <h2 id="uploadDialogTitle">Upload photos</h2>
+    <p>For the event photographers. Enter the upload code you were given.</p>
+    <div class="field">
+      <label for="uploadCode">Upload code</label>
+      <input id="uploadCode" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false">
+    </div>
+    <p class="error" id="uploadCodeError" role="alert"></p>
+    <div class="dialog-actions">
+      <button class="btn btn-quiet" type="button" id="uploadCancelBtn">Cancel</button>
+      <button class="btn" type="submit" id="uploadContinueBtn">Continue</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 1. Welcome -->
+<main class="screen" id="welcome">
+  <h1 class="names" id="names"></h1>
+  <p class="date" id="dateLine"></p>
+  <div class="cameo" aria-hidden="true">
+    <div class="cameo-inner"><span class="cameo-hint">Your photos, found by your face</span></div>
+  </div>
+  <form id="welcomeForm" novalidate>
+    <div class="field">
+      <label for="code">Event code</label>
+      <input id="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="From your invitation card">
+    </div>
+    <label class="consent">
+      <input type="checkbox" id="consent">
+      <span>I agree to my selfie being compared with faces in the event photos. It is used only to find my photos and is not stored.</span>
+    </label>
+    <button class="btn" type="submit" id="startBtn" disabled>Take my selfie</button>
+    <p class="error" id="welcomeError" role="alert"></p>
+  </form>
+  <aside class="credit" data-credit hidden>
+  <p class="credit-label">Photos by</p>
+  <img data-credit-logo alt="" hidden>
+  <p class="credit-name" data-credit-name></p>
+  <p class="credit-tagline" data-credit-tagline hidden></p>
+  <div class="credit-links" data-credit-links></div>
+</aside>
+</main>
+
+<!-- 2. Camera -->
+<main class="screen" id="camera" hidden>
+  <p class="lead">Fit your face inside the oval, in good light, and look straight at the camera.</p>
+  <div class="cameo">
+    <div class="cameo-inner">
+      <video id="video" playsinline autoplay muted></video>
+      <img id="preview" alt="Your selfie" hidden>
+    </div>
+  </div>
+  <button class="btn" id="snapBtn" type="button">Take selfie</button>
+  <input id="fileInput" type="file" accept="image/*" capture="user" hidden>
+  <button class="btn btn-quiet" id="fileBtn" type="button" hidden>Open camera</button>
+  <p class="error" id="cameraError" role="alert"></p>
+  <button class="link" id="cancelBtn" type="button">Back</button>
+</main>
+
+<!-- 3. Searching -->
+<main class="screen" id="searching" hidden>
+  <div class="spinner" aria-hidden="true"></div>
+  <p role="status">Looking for you in the photos…</p>
+</main>
+
+<!-- 4. Gallery -->
+<section id="gallery" hidden>
+  <header class="gallery-head">
+    <div>
+      <h1 id="galleryTitle">Your photos</h1>
+      <p id="gallerySummary"></p>
+    </div>
+    <div class="tabs" role="group" aria-label="Filter photos">
+      <button type="button" data-filter="mine" aria-pressed="true">Photos of me</button>
+      <button type="button" data-filter="all" aria-pressed="false">All photos</button>
+    </div>
+  </header>
+  <div class="grid" id="grid"></div>
+  <aside class="credit" data-credit hidden>
+  <p class="credit-label">Photos by</p>
+  <img data-credit-logo alt="" hidden>
+  <p class="credit-name" data-credit-name></p>
+  <p class="credit-tagline" data-credit-tagline hidden></p>
+  <div class="credit-links" data-credit-links></div>
+</aside>
+  <div class="gallery-foot">
+    <button class="link" id="retakeBtn" type="button">Not finding yourself? Take another selfie</button><br>
+    <button class="link" id="signOutBtn" type="button">Sign out on this phone</button>
+  </div>
+</section>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Photo" hidden>
+  <div class="lightbox-bar">
+    <button type="button" id="closeBtn">Close</button>
+    <a id="downloadLink" href="#">Download</a>
+  </div>
+  <div class="lightbox-stage"><img id="lightboxImg" alt=""></div>
+  <div class="lightbox-nav">
+    <button type="button" id="prevBtn" class="link">Previous</button>
+    <button type="button" id="nextBtn" class="link">Next</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const cfg = window.PLATFORM_CONFIG || {};
+  const SLUG = (new URLSearchParams(location.search).get("e") || "").toLowerCase().replace(/[^a-z0-9-]/g, "");
+  const BASE = `${cfg.apiUrl}/e/${SLUG}`;
+  const TOKEN_KEY = `ep-guest-token-${SLUG}`;
+  const CODE_KEY = `ep-guest-code-${SLUG}`;
+  const $ = (id) => document.getElementById(id);
+
+  const screens = ["welcome", "camera", "searching", "gallery"];
+  function show(name) {
+    screens.forEach((s) => ($(s).hidden = s !== name));
+    window.scrollTo(0, 0);
+  }
+
+  const store = {
+    get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+    del: (k) => { try { localStorage.removeItem(k); } catch {} },
+  };
+
+  // ---------- Welcome ----------
+  // Event details and the photographer credit both come from the event's public info.
+  const fmtDate = (d) => new Date(d + "T12:00:00").toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+  const eventInfo = SLUG ? fetch(BASE).then((r) => (r.ok ? r.json() : null)).catch(() => null) : Promise.resolve(null);
+  eventInfo.then((info) => {
+    if (!info) {
+      $("names").textContent = "Event not found";
+      $("dateLine").textContent = "Open the photo link exactly as you received it, or scan the QR code again.";
+      $("welcomeForm").hidden = true;
+      return;
+    }
+    $("names").textContent = info.name;
+    $("dateLine").textContent = info.startDate === info.endDate ? fmtDate(info.startDate) : `${fmtDate(info.startDate)} to ${fmtDate(info.endDate)}`;
+    document.title = `${info.name}: photos`;
+  });
+
+  const urlCode = new URLSearchParams(location.search).get("code");
+  $("code").value = urlCode || store.get(CODE_KEY) || "";
+
+  function updateStart() {
+    $("startBtn").disabled = !($("code").value.trim() && $("consent").checked);
+  }
+  $("code").addEventListener("input", updateStart);
+  $("consent").addEventListener("change", updateStart);
+
+  $("welcomeForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    $("welcomeError").textContent = "";
+    store.set(CODE_KEY, $("code").value.trim());
+    openCamera();
+  });
+
+  // ---------- Camera ----------
+  let stream = null;
+
+  async function openCamera() {
+    show("camera");
+    $("cameraError").textContent = "";
+    $("preview").hidden = true;
+    $("video").hidden = false;
+    $("snapBtn").hidden = false;
+    $("fileBtn").hidden = true;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 960 } },
+        audio: false,
+      });
+      $("video").srcObject = stream;
+    } catch (err) {
+      // No live camera access (permission denied or unsupported browser): fall back to the phone's camera app.
+      $("video").hidden = true;
+      $("snapBtn").hidden = true;
+      $("fileBtn").hidden = false;
+      $("cameraError").textContent = "Camera access is off for this page. Tap Open camera to take your selfie instead.";
+    }
+  }
+
+  function stopCamera() {
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+    stream = null;
+  }
+
+  $("cancelBtn").addEventListener("click", () => { stopCamera(); show("welcome"); });
+
+  $("snapBtn").addEventListener("click", () => {
+    const v = $("video");
+    if (!v.videoWidth) return;
+    const jpeg = toJpeg(v, v.videoWidth, v.videoHeight);
+    stopCamera();
+    submitSelfie(jpeg);
+  });
+
+  $("fileBtn").addEventListener("click", () => $("fileInput").click());
+  $("fileInput").addEventListener("change", () => {
+    const file = $("fileInput").files[0];
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => { submitSelfie(toJpeg(img, img.naturalWidth, img.naturalHeight)); URL.revokeObjectURL(img.src); };
+    img.src = URL.createObjectURL(file);
+    $("fileInput").value = "";
+  });
+
+  // Downscale to keep uploads small on mobile data; 960px is plenty for face matching.
+  function toJpeg(source, w, h) {
+    const scale = Math.min(1, 960 / Math.max(w, h));
+    const c = document.createElement("canvas");
+    c.width = Math.round(w * scale);
+    c.height = Math.round(h * scale);
+    c.getContext("2d").drawImage(source, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", 0.88);
+  }
+
+  async function submitSelfie(dataUrl) {
+    show("searching");
+    try {
+      const res = await fetch(`${BASE}/match`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: store.get(CODE_KEY), image: dataUrl }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(data.error || "Something went wrong. Try again."), { status: res.status });
+      store.set(TOKEN_KEY, data.token);
+      renderGallery(data);
+    } catch (err) {
+      if (err.status === 403) {
+        show("welcome");
+        $("welcomeError").textContent = err.message;
+      } else {
+        await openCamera();
+        $("cameraError").textContent = err.message || "Couldn't reach the photo server. Check your connection and try again.";
+      }
+    }
+  }
+
+  // ---------- Gallery ----------
+  let photos = [];
+  let visible = [];
+  let filter = "mine";
+
+  function renderGallery(data) {
+    photos = data.photos || [];
+    const mine = data.yourPhotoCount || 0;
+    $("galleryTitle").textContent = mine ? "Your photos" : "Event photos";
+    $("gallerySummary").textContent = mine
+      ? `You're in ${mine} photo${mine === 1 ? "" : "s"}. ${data.publicCount || 0} more are shared with everyone.`
+      : `We didn't find you in any photos yet. Here are the ${data.publicCount || 0} shared with everyone.`;
+    setFilter(mine ? "mine" : "all");
+    show("gallery");
+  }
+
+  function setFilter(f) {
+    filter = f;
+    document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.filter === f)));
+    visible = f === "mine" ? photos.filter((p) => p.yours) : photos;
+    const grid = $("grid");
+    grid.innerHTML = "";
+    if (!visible.length) {
+      const p = document.createElement("p");
+      p.className = "empty";
+      p.textContent = f === "mine"
+        ? "No photos of you yet. More photos are added after the event, so check back, or take another selfie in brighter light."
+        : "Photos will appear here once the photographer delivers them.";
+      grid.appendChild(p);
+      return;
+    }
+    visible.forEach((p, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.setAttribute("aria-label", `Open photo ${i + 1}`);
+      const img = document.createElement("img");
+      img.src = p.thumb;
+      img.loading = "lazy";
+      img.alt = "";
+      btn.appendChild(img);
+      btn.addEventListener("click", () => openLightbox(i));
+      grid.appendChild(btn);
+    });
+  }
+  document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => setFilter(b.dataset.filter)));
+
+  $("retakeBtn").addEventListener("click", openCamera);
+  $("signOutBtn").addEventListener("click", () => { store.del(TOKEN_KEY); photos = []; show("welcome"); });
+
+  // ---------- Photographer credit ----------
+  (async () => {
+    try {
+      const info = await eventInfo;
+      if (!info) return;
+      const b = { name: info.photosBy || "", ...(info.branding || {}) };
+      if (!b.name && !b.logoUrl) return;
+      document.querySelectorAll("[data-credit]").forEach((el) => {
+        const logo = el.querySelector("[data-credit-logo]");
+        if (b.logoUrl) { logo.src = b.logoUrl; logo.alt = b.name ? `${b.name} logo` : "Photographer logo"; logo.hidden = false; }
+        el.querySelector("[data-credit-name]").textContent = b.name;
+        const tag = el.querySelector("[data-credit-tagline]");
+        if (b.tagline) { tag.textContent = b.tagline; tag.hidden = false; }
+        const links = el.querySelector("[data-credit-links]");
+        const add = (href, text) => {
+          const a = document.createElement("a");
+          a.href = href; a.textContent = text; a.target = "_blank"; a.rel = "noopener";
+          links.appendChild(a);
+        };
+        if (b.link) add(b.link, b.name ? `Book ${b.name}` : "Book the photographer");
+        if (b.instagram) add(`https://instagram.com/${encodeURIComponent(b.instagram)}`, `@${b.instagram}`);
+        if (b.contact) {
+          const c = b.contact;
+          if (/@/.test(c)) add(`mailto:${c}`, c);
+          else if (/^[+\d][\d\s()-]{6,}$/.test(c)) add(`tel:${c.replace(/[^\d+]/g, "")}`, c);
+        }
+        el.hidden = false;
+      });
+    } catch {}
+  })();
+
+  // Counts downloads and photo views for the event stats. Never blocks anything.
+  function track(type) {
+    const token = store.get(TOKEN_KEY);
+    if (!token) return;
+    try {
+      // Stats endpoint comes with the dashboard's stats tab; nothing is sent yet.
+    } catch {}
+  }
+  $("downloadLink").addEventListener("click", () => track("download"));
+
+  // ---------- Lightbox ----------
+  let current = 0;
+  function openLightbox(i) {
+    current = i;
+    const p = visible[i];
+    $("lightboxImg").src = p.web;
+    $("downloadLink").href = p.download;
+    track("view");
+    $("prevBtn").disabled = i === 0;
+    $("nextBtn").disabled = i === visible.length - 1;
+    $("lightbox").hidden = false;
+    $("closeBtn").focus();
+  }
+  function closeLightbox() { $("lightbox").hidden = true; $("lightboxImg").src = ""; }
+  $("closeBtn").addEventListener("click", closeLightbox);
+  $("prevBtn").addEventListener("click", () => current > 0 && openLightbox(current - 1));
+  $("nextBtn").addEventListener("click", () => current < visible.length - 1 && openLightbox(current + 1));
+  document.addEventListener("keydown", (e) => {
+    if ($("lightbox").hidden) return;
+    if (e.key === "Escape") closeLightbox();
+    if (e.key === "ArrowLeft") $("prevBtn").click();
+    if (e.key === "ArrowRight") $("nextBtn").click();
+  });
+
+  // ---------- Photographer entry ----------
+  // Checks the code with the API before leaving the page. A correct code gets past the
+  // code check and fails on the empty file list (400); a wrong code gets 403.
+  const dlg = $("uploadDialog");
+  $("uploadEntryBtn").addEventListener("click", () => {
+    $("uploadCodeError").textContent = "";
+    $("uploadCode").value = "";
+    dlg.showModal();
+    $("uploadCode").focus();
+  });
+  $("uploadCancelBtn").addEventListener("click", () => dlg.close());
+  $("uploadCodeForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const code = $("uploadCode").value.trim();
+    if (!code) { $("uploadCodeError").textContent = "Enter the upload code."; return; }
+    $("uploadContinueBtn").disabled = true;
+    $("uploadCodeError").textContent = "";
+    try {
+      const res = await fetch(`${BASE}/upload-urls`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code, visibility: "private", files: [] }),
+      });
+      if (res.status === 403) throw new Error("That code isn't right. Check with the event organiser.");
+      if (res.status !== 400 && !res.ok) throw new Error("Couldn't check the code. Try again.");
+      location.href = `upload.html?e=${SLUG}#k=${encodeURIComponent(code)}`;
+    } catch (err) {
+      $("uploadCodeError").textContent = err.message || "Couldn't check the code. Check your connection.";
+    } finally {
+      $("uploadContinueBtn").disabled = false;
+    }
+  });
+
+  // ---------- Returning guest ----------
+  async function resume() {
+    const token = store.get(TOKEN_KEY);
+    updateStart();
+    if (!token) return show("welcome");
+    show("searching");
+    try {
+      const res = await fetch(`${BASE}/gallery`, { headers: { authorization: `Bearer ${token}` } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(data.error), { status: res.status });
+      renderGallery(data);
+    } catch (err) {
+      if (err.status === 401) store.del(TOKEN_KEY); // keep the session through a flaky connection
+      show("welcome");
+      if (err.message) $("welcomeError").textContent = err.message;
+    }
+  }
+  resume();
+})();
+</script>
+</body>
+</html>

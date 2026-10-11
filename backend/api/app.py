@@ -6,11 +6,21 @@ GET  /orgs/{orgId}/events             -> list the org's events
 POST /orgs/{orgId}/events {name, startDate, endDate?, slug?} -> create an event
 GET  /orgs/{orgId}/events/{eventId}   -> one event, with guest and upload links
 GET  /e/{slug}                        -> public event info for the guest page (no sign-in)
+POST /e/{slug}/match {code, image}    -> guest selfie: match faces, start a session, return the gallery
+GET  /e/{slug}/gallery (Bearer)       -> returning guest's gallery
+POST /e/{slug}/upload-urls {code, visibility, uploader, files} -> photographer upload slots (code = upload key)
+POST /e/{slug}/upload-guide {code}    -> sorting rules shown to the photographer
+
+Storage layout:
+  incoming/<orgId>/<eventId>/<public|private|auto>/<uploader>/<rand>__<file>   written by photographers
+  events/<eventId>/<public|private>/<thumb|web|original>/<photoId>.jpg  published by the processor
+Faces in private photos live in Rekognition collection ev-<eventId> with ExternalImageId = photoId.
 
 Codes are returned once at creation and stored only as hashes.
 """
 import base64
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -20,10 +30,36 @@ from datetime import date, timedelta
 
 import boto3
 from boto3.dynamodb.conditions import Key
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 TABLE = os.environ["TABLE"]
+BUCKET = os.environ.get("BUCKET", "")
 table = boto3.resource("dynamodb").Table(TABLE)
+s3 = boto3.client("s3", config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}))
+rekognition = boto3.client("rekognition")
+
+MATCH_THRESHOLD = 95
+SESSION_DAYS = 30
+URL_TTL = 2 * 60 * 60
+MAX_SELFIE_BYTES = 4_000_000
+MAX_PHOTO_BYTES = 80 * 1024 * 1024
+UPLOAD_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
+DEFAULT_RULES = """PUBLIC (every guest can see):
+- Venue, decor, flowers, cake, table settings and other details
+- Any photo with the main couple or hosts together (applied automatically once their faces are added)
+- Portraits of the couple or hosts
+- Wide shots of the ceremony, entrances, first dance or speeches where guests are part of the crowd
+- Large posed group photos that everyone lined up for
+
+PRIVATE (only people in the photo can see):
+- Candid close-ups of guests
+- Small groups of guests, table shots, people eating or drinking
+- Dancing and party candids that focus on particular guests
+- Children without the couple or hosts
+- Anything unflattering, awkward, or that a guest might not want shared widely
+- Anything you are unsure about"""
+_list_cache = {}
 
 DEFAULT_RETENTION_DAYS = 60
 CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O, 1/I/L lookalikes
@@ -41,6 +77,17 @@ def handler(event, _context):
     try:
         if route == "GET /e/{slug}":
             return public_event(params["slug"])
+        if route == "POST /e/{slug}/match":
+            return guest_match(event_for_slug(params["slug"]), body(event))
+        if route == "GET /e/{slug}/gallery":
+            return guest_gallery(event_for_slug(params["slug"]), event)
+        if route == "POST /e/{slug}/upload-urls":
+            return upload_urls(event_for_slug(params["slug"]), body(event))
+        if route == "POST /e/{slug}/upload-guide":
+            ev = event_for_slug(params["slug"])
+            check_code(body(event).get("code"), ev.get("uploadKeyHash"), "That upload code isn't right.")
+            rules = ev.get("sortingRules") or ""
+            return respond(200, {"rules": rules or DEFAULT_RULES, "isDefault": not rules})
 
         user = current_user(event)
         if route == "GET /me":
@@ -175,6 +222,124 @@ def public_event(slug):
         "name": item["name"], "startDate": item["startDate"], "endDate": item["endDate"],
         "photosBy": org.get("name", ""), "branding": org.get("branding", {}),
     })
+
+
+# ---------- Guests ----------
+
+def event_for_slug(slug):
+    if not re.fullmatch(r"[a-z0-9-]{3,48}", slug or ""):
+        raise HttpError(404, "Event not found.")
+    link = table.get_item(Key={"pk": f"SLUG#{slug}", "sk": "EVENT"}).get("Item")
+    item = link and table.get_item(Key={"pk": f"ORG#{link['orgId']}", "sk": f"EVENT#{link['eventId']}"}).get("Item")
+    if not item or item.get("status") != "active":
+        raise HttpError(404, "Event not found.")
+    return item
+
+
+def check_code(given, stored_hash, message):
+    given = str(given or "").strip()
+    if not given or not stored_hash or not hmac.compare_digest(hash_secret(given), stored_hash):
+        raise HttpError(403, message)
+
+
+def guest_match(ev, data):
+    check_code(data.get("code"), ev.get("guestCodeHash"), "That event code isn't right. Check your invitation or the card on your table.")
+    image = str(data.get("image", ""))
+    if "," in image[:100]:
+        image = image.split(",", 1)[1]
+    try:
+        image_bytes = base64.b64decode(image, validate=True)
+    except Exception:
+        raise HttpError(400, "The selfie didn't upload correctly. Take it again.")
+    if not image_bytes or len(image_bytes) > MAX_SELFIE_BYTES:
+        raise HttpError(400, "The selfie is too large. Take it again.")
+
+    event_id = ev["eventId"]
+    try:
+        result = rekognition.search_faces_by_image(CollectionId=f"ev-{event_id}", Image={"Bytes": image_bytes},
+                                                   FaceMatchThreshold=MATCH_THRESHOLD, MaxFaces=4096, QualityFilter="AUTO")
+    except rekognition.exceptions.InvalidParameterException:
+        raise HttpError(422, "No face found. Face the camera in good light and try again.")
+    except rekognition.exceptions.ResourceNotFoundException:
+        result = {"FaceMatches": []}  # no private photos uploaded yet
+    private_ids = sorted({m["Face"]["ExternalImageId"] for m in result.get("FaceMatches", []) if m["Face"].get("ExternalImageId")})
+
+    token = secrets.token_urlsafe(32)
+    now = int(time.time())
+    table.put_item(Item={"pk": f"SESSION#{token}", "sk": "META", "eventId": event_id, "privateIds": private_ids,
+                         "createdAt": now, "expiresAt": now + SESSION_DAYS * 86400})
+    return respond(200, {"token": token, **build_gallery(event_id, private_ids)})
+
+
+def guest_gallery(ev, event):
+    headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
+    auth = headers.get("authorization", "")
+    token = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+    item = token and table.get_item(Key={"pk": f"SESSION#{token}", "sk": "META"}).get("Item")
+    if not item or item.get("eventId") != ev["eventId"] or int(item.get("expiresAt", 0)) < time.time():
+        raise HttpError(401, "Take a selfie to see your photos.")
+    return respond(200, build_gallery(ev["eventId"], list(item.get("privateIds", []))))
+
+
+def list_photo_ids(event_id, visibility):
+    key = (event_id, visibility)
+    cached = _list_cache.get(key)
+    if cached and time.time() - cached[1] < 60:
+        return cached[0]
+    ids = []
+    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=BUCKET, Prefix=f"events/{event_id}/{visibility}/thumb/"):
+        for obj in page.get("Contents", []):
+            name = obj["Key"].rsplit("/", 1)[-1]
+            if name.endswith(".jpg"):
+                ids.append(name[:-4])
+    _list_cache[key] = (ids, time.time())
+    return ids
+
+
+def build_gallery(event_id, private_ids):
+    public_ids = list_photo_ids(event_id, "public")
+    public_set, existing = set(public_ids), set(list_photo_ids(event_id, "private"))
+    private_ids = [p for p in private_ids if p not in public_set and p in existing]
+    photos = [photo_entry(event_id, "public", p) for p in public_ids] + [photo_entry(event_id, "private", p) for p in private_ids]
+    photos.sort(key=lambda p: p["id"])
+    return {"photos": photos, "yourPhotoCount": len(private_ids), "publicCount": len(public_ids)}
+
+
+def photo_entry(event_id, visibility, pid):
+    def url(size, download=False):
+        params = {"Bucket": BUCKET, "Key": f"events/{event_id}/{visibility}/{size}/{pid}.jpg"}
+        if download:
+            params["ResponseContentDisposition"] = f'attachment; filename="{pid}.jpg"'
+        return s3.generate_presigned_url("get_object", Params=params, ExpiresIn=URL_TTL)
+    return {"id": pid, "yours": visibility == "private", "thumb": url("thumb"), "web": url("web"), "download": url("original", True)}
+
+
+# ---------- Photographer uploads ----------
+
+def upload_urls(ev, data):
+    check_code(data.get("code"), ev.get("uploadKeyHash"), "That upload code isn't right.")
+    visibility = data.get("visibility")
+    if visibility not in ("public", "private", "auto"):
+        raise HttpError(400, "Choose public, private, or auto.")
+    uploader = re.sub(r"[^a-z0-9-]", "-", str(data.get("uploader", "photographer")).lower()).strip("-")[:40] or "photographer"
+    files = data.get("files") or []
+    if not isinstance(files, list) or not 1 <= len(files) <= 50:
+        raise HttpError(400, "Send between 1 and 50 files per request.")
+    uploads = []
+    for f in files:
+        name = str((f or {}).get("name", ""))
+        ext = os.path.splitext(name)[1].lower()
+        if ext not in UPLOAD_TYPES:
+            uploads.append({"name": name, "error": "Only JPG and PNG files are accepted."})
+            continue
+        stem = re.sub(r"[^A-Za-z0-9_.-]", "_", os.path.splitext(name)[0])[:80] or "photo"
+        key = f"incoming/{ev['pk'][4:]}/{ev['eventId']}/{visibility}/{uploader}/{secrets.token_hex(4)}__{stem}{ext}"
+        ctype = UPLOAD_TYPES[ext]
+        post = s3.generate_presigned_post(Bucket=BUCKET, Key=key, Fields={"Content-Type": ctype},
+                                          Conditions=[{"Content-Type": ctype}, ["content-length-range", 1, MAX_PHOTO_BYTES]],
+                                          ExpiresIn=3600)
+        uploads.append({"name": name, "url": post["url"], "fields": post["fields"]})
+    return respond(200, {"uploads": uploads})
 
 
 def event_view(item):

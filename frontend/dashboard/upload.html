@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Upload photos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;1,6..96,400&family=Jost:wght@400;500&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<style>
+  :root {
+    --paper: #faf5f6; --ink: #2e1a33; --gold: #a8822a; --mist: #7d6f80;
+    --line: #e6dbe0; --white: #ffffff; --danger: #9b2c3a; --ok: #3d6b4f;
+    --display: "Bodoni Moda", "Didot", Georgia, serif;
+    --body: "Jost", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); }
+  body { font: 400 1rem/1.55 var(--body); padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+  [hidden] { display: none !important; }
+
+  .wrap { max-width: 48rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+  h1 { font: 400 clamp(2rem, 6vw, 2.8rem)/1.1 var(--display); margin: 0 0 .25rem; }
+  .sub { color: var(--mist); margin: 0 0 2rem; }
+
+  .folders { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; margin: 0 0 1.5rem; }
+  .folder { background: var(--white); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.25rem; }
+  .folder-name { font-weight: 500; display: flex; align-items: center; gap: .5rem; }
+  .folder-name::before { content: ""; width: 1.1rem; height: .85rem; border: 1.5px solid var(--gold); border-radius: 2px 2px 3px 3px; flex: none; }
+  .folder p { margin: .35rem 0 .5rem; color: var(--mist); font-size: .95rem; }
+  .folder ul { margin: 0; padding-left: 1.1rem; font-size: .95rem; }
+
+  .drop {
+    background: var(--white); border: 1.5px dashed var(--line); border-radius: 10px;
+    padding: 2rem 1.25rem; text-align: center;
+  }
+  .drop.dragging { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(168,130,42,.18); }
+  .drop strong { display: block; font: 400 1.4rem/1.3 var(--display); margin-bottom: .35rem; }
+  .drop p { margin: 0 0 1rem; color: var(--mist); }
+  .btn { display: inline-block; padding: .8rem 1.4rem; border-radius: 999px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); font-weight: 500; cursor: pointer; }
+  .link { background: none; border: 0; color: var(--mist); text-decoration: underline; cursor: pointer; padding: .25rem; }
+  .name { margin: 1rem auto 0; max-width: 20rem; text-align: left; }
+  .name label { display: block; font-size: .9rem; color: var(--mist); margin-bottom: .25rem; }
+  .name input { width: 100%; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+
+  .progress { margin: 1.5rem 0 0; background: var(--white); border: 1px solid var(--line); border-radius: 10px; padding: 1.25rem; }
+  .bar { height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; margin: .75rem 0; }
+  .bar > div { height: 100%; width: 0; background: var(--gold); transition: width .3s; }
+  .status-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; color: var(--mist); font-size: .95rem; }
+  .split { display: flex; flex-wrap: wrap; gap: 1.5rem; margin-top: .5rem; font-size: .95rem; }
+  .split strong { font-weight: 500; }
+  .warn { color: var(--gold); font-size: .95rem; margin: .75rem 0 0; }
+  .failed-list { color: var(--danger); font-size: .9rem; margin: .5rem 0 0; padding-left: 1.1rem; max-height: 10rem; overflow: auto; }
+  .done { color: var(--ok); font-weight: 500; }
+  .notice { font-size: .9rem; color: var(--mist); margin-top: 1rem; }
+  .gate { max-width: 26rem; margin: 3rem auto 0; }
+  .gate .field { margin: 0 0 1rem; }
+  .gate label { display: block; font-weight: 500; margin-bottom: .35rem; }
+  .gate input { width: 100%; padding: .8rem 1rem; background: var(--white); border: 1px solid var(--line); border-radius: 6px; }
+  .error { color: var(--danger); min-height: 1.5em; margin: .75rem 0 0; }
+
+  .steps { list-style: none; counter-reset: step; margin: 0 0 2rem; padding: 0; display: grid; gap: 1rem; }
+  .steps > li { counter-increment: step; display: grid; grid-template-columns: 2.25rem 1fr; gap: .75rem; align-items: start; }
+  .steps > li::before {
+    content: counter(step); width: 2.25rem; height: 2.25rem; border-radius: 50%;
+    border: 1px solid var(--gold); color: var(--gold); display: grid; place-items: center;
+    font: 400 1.1rem/1 var(--display);
+  }
+  .steps strong { display: block; font-weight: 500; }
+  .steps p { margin: .15rem 0 0; color: var(--mist); }
+  .tree {
+    font: .95rem/1.7 ui-monospace, "Cascadia Mono", Consolas, monospace; background: var(--white);
+    border: 1px solid var(--line); border-radius: 8px; padding: .75rem 1rem; margin: .6rem 0 0;
+    white-space: pre; overflow-x: auto; color: var(--ink);
+  }
+  .tree em { font-style: normal; color: var(--gold); }
+  h2.section { font: 400 1.5rem/1.2 var(--display); margin: 0 0 1rem; }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <section id="gate" class="gate" hidden>
+    <h1>Upload photos</h1>
+    <p class="sub">For the event photographers. Enter the upload code you were given.</p>
+    <form id="gateForm" novalidate>
+      <div class="field">
+        <label for="gateCode">Upload code</label>
+        <input id="gateCode" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      </div>
+      <button class="btn" type="submit" id="gateBtn">Continue</button>
+      <p class="error" id="gateError" role="alert"></p>
+    </form>
+  </section>
+
+  <section id="main" hidden>
+    <h1>Upload the photos</h1>
+    <p class="sub" id="eventLine"></p>
+
+    <h2 class="section">How it works</h2>
+    <ol class="steps">
+      <li>
+        <div>
+          <strong>Put the photos in one folder for this event</strong>
+          <p>Any name works, for example "Event photos". JPG or PNG only, so export RAW or HEIC files to JPG first. Subfolders are fine.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Optional: sort them yourself</strong>
+          <p>You don't have to. Photos you leave unsorted are sorted automatically by AI using the event's guide below, and anything it isn't sure about stays private. If you'd rather decide yourself, create these two folders inside and move photos into them. Your folders always win over the AI.</p>
+<div class="tree">Event photos/
+├── <em>Photos for everyone</em>/
+├── <em>Private photos</em>/
+└── (anything else here is sorted by AI)</div>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Upload the event folder</strong>
+          <p>Drag the "Event photos" folder onto the box below, or click Choose folder and select it.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Keep this page open until it says "All photos uploaded"</strong>
+          <p>If your connection drops, click Retry failed uploads. Uploading the same folder again is safe, since duplicates are skipped.</p>
+        </div>
+      </li>
+    </ol>
+
+    <h2 class="section">What goes where</h2>
+
+    <div class="folders">
+      <div class="folder">
+        <div class="folder-name">Photos for everyone</div>
+        <p>Every guest can see these.</p>
+        <ul id="guidePublic"></ul>
+      </div>
+      <div class="folder">
+        <div class="folder-name">Private photos</div>
+        <p>Only people who appear in the photo can see it.</p>
+        <ul id="guidePrivate"></ul>
+      </div>
+    </div>
+
+    <div class="drop" id="drop">
+      <strong>Drag your event folder here</strong>
+      <p>or choose it below. Sorted folders are respected; everything else is sorted by AI.</p>
+      <button class="btn" type="button" id="pickBtn">Choose folder</button>
+      <div class="name">
+        <label for="uploader">Your name or studio (optional)</label>
+        <input id="uploader" type="text" autocomplete="organization">
+      </div>
+    </div>
+    <input type="file" id="pickFolder" webkitdirectory multiple hidden>
+
+    <div class="progress" id="progress" hidden>
+      <div class="status-line"><span id="progressText"></span><span id="progressBytes"></span></div>
+      <div class="bar"><div id="barFill"></div></div>
+      <div class="split">
+        <span>For everyone: <strong id="countPublic">0</strong></span>
+        <span>Private: <strong id="countPrivate">0</strong></span>
+        <span>Sorted by AI: <strong id="countAuto">0</strong></span>
+      </div>
+      <div class="status-line" style="margin-top:.5rem">
+        <span id="progressDetail"></span>
+        <button class="link" id="retryBtn" type="button" hidden>Retry failed uploads</button>
+      </div>
+      <ul class="failed-list" id="failedList"></ul>
+    </div>
+    <p class="notice" id="skipNotice"></p>
+
+  </section>
+
+</main>
+
+<script>
+(() => {
+  const cfg = window.PLATFORM_CONFIG || {};
+  const SLUG = (new URLSearchParams(location.search).get("e") || "").toLowerCase().replace(/[^a-z0-9-]/g, "");
+  const BASE = `${cfg.apiUrl}/e/${SLUG}`;
+  const $ = (id) => document.getElementById(id);
+  const CONCURRENCY = 4;
+  const ALLOWED = /\.(jpe?g|png)$/i;
+
+  // The upload key travels in the URL fragment (#k=...), which browsers never send to servers or in referrers.
+  const params = new URLSearchParams(location.hash.slice(1));
+  const uploadKey = params.get("k");
+  if (!uploadKey) {
+    // Opened without a key: ask for the code, check it, then reload with it in the fragment.
+    $("gate").hidden = false;
+    $("gateForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const code = $("gateCode").value.trim();
+      if (!code) { $("gateError").textContent = "Enter the upload code."; return; }
+      $("gateBtn").disabled = true;
+      $("gateError").textContent = "";
+      try {
+        const res = await fetch(`${BASE}/upload-urls`, {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ code, visibility: "private", files: [] }),
+        });
+        if (res.status === 403) throw new Error("That code isn't right.");
+        if (res.status !== 400 && !res.ok) throw new Error("Couldn't check the code. Try again.");
+        location.hash = `k=${encodeURIComponent(code)}`;
+        location.reload();
+      } catch (err) {
+        $("gateError").textContent = err.message || "Couldn't check the code. Check your connection.";
+        $("gateBtn").disabled = false;
+      }
+    });
+    return;
+  }
+  $("main").hidden = false;
+  if (params.get("by")) $("uploader").value = params.get("by");
+  fetch(BASE).then((r) => (r.ok ? r.json() : null)).then((info) => {
+    if (info) { $("eventLine").textContent = info.name; document.title = `Upload photos: ${info.name}`; }
+  }).catch(() => {});
+
+  // The guide comes from the same rules the AI uses, edited on the review page.
+  const fill = (el, items) => { el.innerHTML = ""; items.forEach((t) => { const li = document.createElement("li"); li.textContent = t; el.appendChild(li); }); };
+  function parseRules(text) {
+    const out = { public: [], private: [] };
+    let section = null;
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line) continue;
+      const bullet = line.match(/^[-*•]\s*(.+)$/) || line.match(/^\d+[.)]\s*(.+)$/);
+      if (bullet && section) { out[section].push(bullet[1]); continue; }
+      if (/private/i.test(line)) section = "private";
+      else if (/public|everyone/i.test(line)) section = "public";
+      else if (section) out[section].push(line);
+    }
+    return out;
+  }
+  (async () => {
+    try {
+      const res = await fetch(`${BASE}/upload-guide`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: uploadKey }),
+      });
+      if (!res.ok) throw new Error();
+      const guide = parseRules((await res.json()).rules || "");
+      if (!guide.public.length && !guide.private.length) throw new Error();
+      fill($("guidePublic"), guide.public.length ? guide.public : ["See the organiser's notes"]);
+      fill($("guidePrivate"), guide.private.length ? guide.private : ["Anything you're unsure about"]);
+    } catch {
+      fill($("guidePublic"), ["Venue, decor, and details", "Portraits of the hosts"]);
+      fill($("guidePrivate"), ["Guests' candids and small groups", "Anything you're unsure about"]);
+    }
+  })();
+
+  // ---------- Sorting by folder name ----------
+  // Uses the closest folder in the path that matches, so "Day 1/Private photos/IMG.jpg" is private.
+  function classify(path) {
+    const folders = path.split("/").slice(0, -1).reverse();
+    for (const f of folders) {
+      const n = f.toLowerCase().replace(/[^a-z]/g, "");
+      if (n.includes("everyone") || n.includes("public")) return "public";
+      if (n.includes("private")) return "private";
+    }
+    return "auto"; // not inside a named folder: AI decides
+  }
+
+  const jobs = [];
+  const seen = new Set();
+  let active = 0, skipped = 0;
+
+  function addFiles(items) {
+    for (const { file, path } of items) {
+      if (!ALLOWED.test(file.name)) { skipped++; continue; }
+      const id = `${path}|${file.size}|${file.lastModified}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const vis = classify(path);
+      jobs.push({ file, vis, status: "queued", loaded: 0 });
+    }
+    $("skipNotice").textContent = skipped
+      ? `${skipped} file(s) skipped because they aren't JPG or PNG. Export RAW or HEIC files to JPG first.` : "";
+    render();
+    pump();
+  }
+
+  $("pickBtn").addEventListener("click", () => $("pickFolder").click());
+  $("pickFolder").addEventListener("change", () => {
+    addFiles([...$("pickFolder").files].map((f) => ({ file: f, path: f.webkitRelativePath || f.name })));
+    $("pickFolder").value = "";
+  });
+
+  const drop = $("drop");
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("dragging"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("dragging"));
+  drop.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    drop.classList.remove("dragging");
+    addFiles(await filesFromDrop(e.dataTransfer));
+  });
+
+  async function filesFromDrop(dt) {
+    const entries = [...dt.items].map((i) => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+    if (!entries.length) return [...dt.files].map((f) => ({ file: f, path: f.name }));
+    const out = [];
+    async function walk(entry) {
+      if (entry.isFile) {
+        const file = await new Promise((res, rej) => entry.file(res, rej));
+        out.push({ file, path: entry.fullPath.replace(/^\//, "") });
+      } else if (entry.isDirectory) {
+        const reader = entry.createReader();
+        let batch;
+        do {
+          batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+          for (const child of batch) await walk(child);
+        } while (batch.length);
+      }
+    }
+    for (const entry of entries) await walk(entry);
+    return out;
+  }
+
+  // ---------- Upload engine ----------
+  async function pump() {
+    while (active < CONCURRENCY) {
+      const job = jobs.find((j) => j.status === "queued");
+      if (!job) break;
+      active++;
+      job.status = "uploading";
+      upload(job).finally(() => { active--; render(); pump(); });
+    }
+    render();
+  }
+
+  const slotCache = new Map();   // job -> {url, fields, at}
+  const inFlight = new Map();    // job -> promise of the batch request that covers it
+  let linkRejected = false;
+
+  async function getSlot(job) {
+    const cached = slotCache.get(job);
+    if (cached && Date.now() - cached.at < 50 * 60 * 1000) return cached; // slots expire after 60 min
+    if (inFlight.has(job)) { await inFlight.get(job); return slotCache.get(job) || getSlot(job); }
+
+    // One request covers this file plus up to 19 queued files behind it.
+    const batch = [job, ...jobs.filter((j) => j !== job && j.vis === job.vis && j.status === "queued"
+      && !slotCache.has(j) && !inFlight.has(j)).slice(0, 19)];
+    const request = requestSlots(batch);
+    batch.forEach((j) => inFlight.set(j, request.catch(() => {})));
+    try { await request; } finally { batch.forEach((j) => inFlight.delete(j)); }
+    return slotCache.get(job);
+  }
+
+  async function requestSlots(batch) {
+    const res = await fetch(`${BASE}/upload-urls`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: uploadKey, uploader: $("uploader").value.trim() || "photographer",
+        visibility: batch[0].vis, files: batch.map((j) => ({ name: j.file.name })) }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 403) {
+      linkRejected = true;
+      jobs.forEach((j) => { if (j.status === "queued") { j.status = "failed"; j.error = "Upload link no longer valid"; } });
+      throw new Error("Upload link no longer valid");
+    }
+    if (!res.ok) throw new Error(data.error || "Couldn't get an upload slot.");
+    data.uploads.forEach((u, i) => slotCache.set(batch[i], { ...u, at: Date.now() }));
+  }
+
+  async function upload(job) {
+    try {
+      const slot = await getSlot(job);
+      slotCache.delete(job);
+      if (!slot) throw new Error("Couldn't get an upload slot.");
+      if (slot.error) throw new Error(slot.error);
+      await postFile(slot, job);
+      job.status = "done";
+      job.loaded = job.file.size;
+    } catch (err) {
+      job.status = "failed";
+      job.loaded = 0;
+      job.error = err.message || "Upload failed";
+    }
+  }
+
+  function postFile(slot, job) {
+    return new Promise((resolve, reject) => {
+      const form = new FormData();
+      Object.entries(slot.fields).forEach(([k, v]) => form.append(k, v));
+      form.append("file", job.file);
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", slot.url);
+      xhr.upload.onprogress = (e) => { job.loaded = e.loaded; renderSoon(); };
+      xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve()
+        : reject(new Error(xhr.status === 400 ? "Rejected by storage (file too large or wrong type)" : `Storage error ${xhr.status}`));
+      xhr.onerror = () => reject(new Error("Network error"));
+      xhr.send(form);
+    });
+  }
+
+  $("retryBtn").addEventListener("click", () => {
+    jobs.filter((j) => j.status === "failed").forEach((j) => { j.status = "queued"; j.error = ""; });
+    pump();
+  });
+
+  window.addEventListener("beforeunload", (e) => {
+    if (jobs.some((j) => j.status === "queued" || j.status === "uploading")) { e.preventDefault(); e.returnValue = ""; }
+  });
+
+  // ---------- Rendering ----------
+  let pending = false;
+  function renderSoon() { if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; render(); }); } }
+  const mb = (b) => (b / 1048576).toFixed(1);
+
+  function render() {
+    if (!jobs.length) return;
+    $("progress").hidden = false;
+    $("countPublic").textContent = jobs.filter((j) => j.vis === "public").length;
+    $("countPrivate").textContent = jobs.filter((j) => j.vis === "private").length;
+    $("countAuto").textContent = jobs.filter((j) => j.vis === "auto").length;
+
+    const total = jobs.reduce((s, j) => s + j.file.size, 0);
+    const loaded = jobs.reduce((s, j) => s + (j.status === "done" ? j.file.size : j.loaded), 0);
+    const done = jobs.filter((j) => j.status === "done").length;
+    const failed = jobs.filter((j) => j.status === "failed");
+    const running = jobs.some((j) => j.status === "queued" || j.status === "uploading");
+
+    $("barFill").style.width = `${total ? (loaded / total) * 100 : 0}%`;
+    $("progressBytes").textContent = `${mb(loaded)} / ${mb(total)} MB`;
+    $("progressText").innerHTML = running
+      ? `Uploading ${done} of ${jobs.length}… keep this page open`
+      : (failed.length ? `${done} uploaded, ${failed.length} failed` : `<span class="done">All ${done} photos uploaded. Thank you!</span>`);
+    $("progressDetail").textContent = running ? "" : linkRejected
+      ? "This upload link has been turned off. Ask for a new one."
+      : (failed.length ? "Check your connection, then retry." : "");
+    $("retryBtn").hidden = running || !failed.length || linkRejected;
+    const list = $("failedList");
+    list.innerHTML = "";
+    failed.slice(0, 50).forEach((j) => { const li = document.createElement("li"); li.textContent = `${j.file.name}: ${j.error}`; list.appendChild(li); });
+  }
+})();
+</script>
+</body>
+</html>

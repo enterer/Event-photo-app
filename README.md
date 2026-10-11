@@ -4,11 +4,13 @@ Multi-event version of the wedding selfie photo app, for photographers and event
 
 **This repo never deploys to eu-west-1.** That region runs the wedding (`wedding-photos` stack, separate repo). The template refuses eu-west-1, and `scripts/deploy.sh` refuses the wedding region and stack name.
 
-## Status: week 1 plus dev dashboard
+## Status: week 2
 
-- Data table, media bucket, Cognito sign-in, HTTP API with a JWT authorizer
-- Organisations (create, membership) and events (create, list, view, public guest-page info)
-- Event guest codes and upload keys are generated, shown once, and stored only as hashes
+- Sign-in, studios, events (dashboard)
+- Guest page `guest.html?e=<slug>`: event code, selfie, public photos plus the ones the guest is in
+- Photographer page `upload.html?e=<slug>#k=<upload key>`: folder upload; "Photos for everyone" and "Private photos" folders are respected, everything else is sorted by AI (Claude Haiku 4.5 on Bedrock, us-east-1)
+- Processor: resize, host recognition (once host faces exist), AI sorting with the event's rules, per-event face collection `ev-<eventId>`
+- Guest codes and upload keys are shown once when an event is created and stored only as hashes
 
 ## Deploy (Git Bash)
 
@@ -22,10 +24,10 @@ Settings (region `us-east-1`, stack `eventphotos-dev`, tags) are in `samconfig.t
 
 ## Dev dashboard
 
-`frontend/dashboard/` is the photographer dashboard (sign up, sign in, studio setup, create and view events). It talks to Cognito directly, with no extra libraries.
+`frontend/dashboard/` holds the photographer dashboard (`index.html`), the guest page (`guest.html`) and the photographer upload page (`upload.html`), all sharing `config.js`. It talks to Cognito directly, with no extra libraries.
 
 1. Fill in `frontend/dashboard/config.js` from the stack outputs (`ApiUrl`, `UserPoolClientId`).
-2. Host it with Amplify: new app → GitHub → `Event-photo-app`, branch `main`, monorepo root `frontend/dashboard` (it reads `amplify.yml`). Use the us-east-1 console so it sits beside the stack.
+2. Host it with Amplify (us-east-1): new app → GitHub → `Event-photo-app`, branch `main`, not a monorepo; `amplify.yml` publishes `frontend/dashboard`.
 3. Open the Amplify link, create an account, verify with the emailed code, set up your studio, create an event.
 
 Cognito's default email sender allows about 50 emails a day, which is fine for dev.

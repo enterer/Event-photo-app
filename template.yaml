@@ -184,6 +184,14 @@ Resources:
             Method: GET
             Auth:
               Authorizer: Cognito
+        NewEventCode:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /orgs/{orgId}/events/{eventId}/new-code
+            Method: POST
+            Auth:
+              Authorizer: Cognito
         PublicEvent:
           Type: HttpApi
           Properties:

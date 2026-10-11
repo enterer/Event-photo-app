@@ -5,6 +5,7 @@ POST /orgs {name}                     -> create an organisation; caller becomes 
 GET  /orgs/{orgId}/events             -> list the org's events
 POST /orgs/{orgId}/events {name, startDate, endDate?, slug?} -> create an event
 GET  /orgs/{orgId}/events/{eventId}   -> one event, with guest and upload links
+POST /orgs/{orgId}/events/{eventId}/new-code {kind: upload|guest} -> replace the upload key or guest code
 GET  /e/{slug}                        -> public event info for the guest page (no sign-in)
 POST /e/{slug}/match {code, image}    -> guest selfie: match faces, start a session, return the gallery
 GET  /e/{slug}/gallery (Bearer)       -> returning guest's gallery
@@ -101,6 +102,8 @@ def handler(event, _context):
             return list_events(org_id)
         if route == "POST /orgs/{orgId}/events":
             return create_event(org_id, body(event))
+        if route == "POST /orgs/{orgId}/events/{eventId}/new-code":
+            return new_code_for_event(org_id, params["eventId"], body(event))
         if route == "GET /orgs/{orgId}/events/{eventId}":
             return get_event(org_id, params["eventId"])
         return respond(404, {"error": "Not found."})
@@ -197,6 +200,26 @@ def create_event(org_id, data):
     view["guestCode"] = guest_code      # shown once; only the hash is stored
     view["uploadKey"] = upload_key
     return respond(201, view)
+
+
+def new_code_for_event(org_id, event_id, data):
+    """Replace the photographer upload key or the guest code. The old one stops working at once."""
+    kind = data.get("kind")
+    if kind not in ("upload", "guest"):
+        raise HttpError(400, "Choose upload or guest.")
+    if not re.fullmatch(r"[a-z0-9]{12}", event_id or ""):
+        raise HttpError(404, "Not found.")
+    value = secrets.token_urlsafe(18) if kind == "upload" else new_code(8)
+    field = "uploadKeyHash" if kind == "upload" else "guestCodeHash"
+    try:
+        table.update_item(Key={"pk": f"ORG#{org_id}", "sk": f"EVENT#{event_id}"},
+                          UpdateExpression=f"SET {field} = :h", ConditionExpression="attribute_exists(pk)",
+                          ExpressionAttributeValues={":h": hash_secret(value)})
+    except ClientError as err:
+        if err.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            raise HttpError(404, "Not found.")
+        raise
+    return respond(200, {"kind": kind, "uploadKey" if kind == "upload" else "guestCode": value})
 
 
 def get_event(org_id, event_id):

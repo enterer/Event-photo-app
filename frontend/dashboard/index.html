@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="config.js"></script>
+<script src="qrcode.js"></script>
 <style>
   :root {
     --bg: #f6f4f1; --panel: #ffffff; --ink: #1d1b19; --muted: #6f6a64; --line: #e4dfd8;
@@ -90,6 +91,53 @@
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
 
+  /* Event tabs */
+  .tabbar { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 6px 0 18px; overflow-x: auto; }
+  .tabbar button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px; cursor: pointer; color: var(--muted); font-weight: 500; white-space: nowrap; }
+  .tabbar button[aria-selected=true] { color: var(--ink); border-bottom-color: var(--accent); }
+  .qrbox { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+  .qr { width: 200px; height: 200px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 10px; flex: none; }
+  .qr svg, .qr img { width: 100%; height: 100%; display: block; }
+  .qr-side { flex: 1; min-width: 220px; }
+  .note { color: var(--muted); font-size: 13.5px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .filters button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 13.5px; }
+  .filters button[aria-pressed=true] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .filters .n { opacity: .65; margin-left: 4px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+  .pcard { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+  .pcard.look { border-color: #d9a066; }
+  .pcard.busy { opacity: .5; pointer-events: none; }
+  .pcard .img { aspect-ratio: 4 / 3; background: #eee9e2; border: 0; padding: 0; cursor: zoom-in; width: 100%; display: block; }
+  .pcard .img { position: relative; overflow: hidden; }
+  .pcard .img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pcard .body { padding: 10px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .badge { align-self: flex-start; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .badge.public { background: #e9f2ec; color: var(--ok); }
+  .badge.private { background: #f1ece5; color: var(--ink); }
+  .pmeta { font-size: 12.5px; color: var(--muted); }
+  .preason { font-size: 13px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .ptools { display: flex; justify-content: space-between; gap: 6px; margin-top: auto; }
+  .link.danger { color: var(--danger); }
+  .pcard .flip { width: 100%; padding: 7px 10px; font-size: 13.5px; }
+  .empty-small { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 32px 12px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .stat b { display: block; font: 600 28px/1.1 var(--display); }
+  .stat span { color: var(--muted); font-size: 13px; }
+  textarea.rules { width: 100%; min-height: 300px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; font: 14px/1.5 var(--body); background: #fff; }
+  .hostrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .hostrow:last-child { border-bottom: 0; }
+  .danger-card { border-color: #e7c4bd; }
+  .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .logo-prev { height: 56px; min-width: 56px; max-width: 200px; border: 1px dashed var(--line); border-radius: 8px; display: grid; place-items: center; color: var(--muted); font-size: 12px; padding: 4px; background: #fff; }
+  .logo-prev img { max-height: 46px; max-width: 190px; object-fit: contain; }
+  .row2b { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 14px; }
+  .lightbox { position: fixed; inset: 0; background: rgb(20, 18, 16); display: grid; place-items: center; z-index: 20; padding: 16px; cursor: zoom-out; }
+  .lightbox img { max-width: 100%; max-height: calc(100dvh - 32px); object-fit: contain; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 9px 16px; border-radius: 999px; font-size: 14px; z-index: 30; }
+
   @media (max-width: 560px) {
     .event { grid-template-columns: 1fr; }
     .pill { justify-self: start; }
@@ -153,7 +201,7 @@
 <div id="appView" hidden>
   <header class="top">
     <p class="brand">Event<span>Photos</span></p>
-    <div class="who"><span class="org-name" id="orgLabel"></span><span id="userLabel"></span><button class="btn ghost" type="button" id="signOutBtn">Sign out</button></div>
+    <div class="who"><button class="link" type="button" id="brandingNavBtn">Studio branding</button><span class="org-name" id="orgLabel"></span><span id="userLabel"></span><button class="btn ghost" type="button" id="signOutBtn">Sign out</button></div>
   </header>
 
   <main class="app">
@@ -193,35 +241,131 @@
         <div class="copyrow" id="rowUploadLink"><label>Photographer link</label><code id="sUploadLink"></code><button class="btn ghost" type="button" data-copy="sUploadLink">Copy</button></div>
       </div>
 
-      <div class="grid2">
-        <div class="card">
-          <h2>Details</h2>
-          <dl class="kv">
-            <dt>Guest link</dt><dd><a id="evLink" target="_blank" rel="noopener"></a></dd>
-            <dt>Status</dt><dd id="evStatus"></dd>
-            <dt>Photos deleted</dt><dd id="evDelete"></dd>
-            <dt>Event ID</dt><dd id="evId" style="font-family:ui-monospace,Consolas,monospace;font-size:13px"></dd>
-          </dl>
-        </div>
-        <div class="card todo">
-          <h2>How it works</h2>
-          <ul>
-            <li>Send the photographer link to whoever uploads. Unsorted photos are sorted by AI; anything uncertain stays private.</li>
-            <li>Share the guest link and guest code (for example on a QR card). Guests take a selfie and see the shared photos plus the ones they're in.</li>
-          </ul>
-          <h2 style="margin-top:20px">Lost a link?</h2>
-          <p style="margin:0 0 12px">Make a new one here. The old one stops working straight away, so send the new one to everyone who needs it.</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn ghost" type="button" id="newUploadBtn">New photographer link</button>
-            <button class="btn ghost" type="button" id="newGuestBtn">New guest code</button>
+      <div class="tabbar" role="tablist" id="evTabs">
+        <button role="tab" type="button" data-tab="share" aria-selected="true">Share</button>
+        <button role="tab" type="button" data-tab="photos" aria-selected="false">Photos</button>
+        <button role="tab" type="button" data-tab="rules" aria-selected="false">Sorting rules</button>
+        <button role="tab" type="button" data-tab="hosts" aria-selected="false">Hosts</button>
+        <button role="tab" type="button" data-tab="stats" aria-selected="false">Stats</button>
+      </div>
+
+      <!-- Share -->
+      <div class="tabpanel" id="tab-share">
+        <div class="grid2">
+          <div class="card">
+            <h2>Guest QR code</h2>
+            <div class="qrbox">
+              <div class="qr" id="qrBox" aria-label="QR code for the guest link"></div>
+              <div class="qr-side">
+                <div class="field"><label for="qrCode">Guest code to include (optional)</label><input id="qrCode" autocomplete="off" placeholder="e.g. 7K4PQX2M">
+                  <div class="hint">With the code included, guests scan and go straight to the selfie. Without it, they type the code from the card.</div></div>
+                <button class="btn" type="button" id="qrDownload">Download QR (PNG)</button>
+              </div>
+            </div>
+            <p class="note" style="margin:14px 0 0">Guest link: <a id="evLink" target="_blank" rel="noopener"></a></p>
           </div>
-          <p class="msg" id="newCodeMsg" role="alert"></p>
-          <p style="margin:12px 0 0">Coming next: QR code, review queue, sorting rules, host recognition, stats.</p>
+          <div class="card">
+            <h2>Details</h2>
+            <dl class="kv">
+              <dt>Status</dt><dd id="evStatus"></dd>
+              <dt>Photos deleted</dt><dd id="evDelete"></dd>
+              <dt>Event ID</dt><dd id="evId" style="font-family:ui-monospace,Consolas,monospace;font-size:13px"></dd>
+            </dl>
+            <h2 style="margin-top:20px">Lost a link?</h2>
+            <p class="note" style="margin:0 0 12px">Make a new one. The old one stops working straight away, so send the new one to everyone who needs it.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn ghost" type="button" id="newUploadBtn">New photographer link</button>
+              <button class="btn ghost" type="button" id="newGuestBtn">New guest code</button>
+            </div>
+            <p class="msg" id="newCodeMsg" role="alert"></p>
+          </div>
         </div>
+      </div>
+
+      <!-- Photos -->
+      <div class="tabpanel" id="tab-photos" hidden>
+        <div class="toolbar">
+          <div class="filters" id="photoFilters"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn accent" type="button" id="resortAllBtn" hidden></button>
+            <button class="btn ghost" type="button" id="photosRefresh">Refresh</button>
+          </div>
+        </div>
+        <p class="note" id="photosSummary" style="margin:0 0 12px"></p>
+        <div class="pgrid" id="photoGrid"></div>
+        <div class="card danger-card" style="margin-top:28px">
+          <h2 style="color:var(--danger)">Delete all photos</h2>
+          <p class="note">Permanently deletes every photo in this event (originals included), every guest's face data and every record. Guests see an empty gallery. Make sure the client has their own copies first.</p>
+          <label style="display:flex;gap:8px;align-items:flex-start;margin:10px 0;font-size:14px"><input type="checkbox" id="delHosts" style="margin-top:4px"> <span>Also delete the hosts' reference photos</span></label>
+          <div class="field" style="max-width:340px"><label for="delConfirm">Type DELETE ALL PHOTOS to confirm</label><input id="delConfirm" autocomplete="off"></div>
+          <button class="btn danger" type="button" id="delAllBtn" disabled>Delete everything</button>
+          <p class="msg" id="delMsg" role="status"></p>
+        </div>
+      </div>
+
+      <!-- Rules -->
+      <div class="tabpanel" id="tab-rules" hidden>
+        <div class="card">
+          <h2>Sorting rules</h2>
+          <p class="note">The AI follows these for every photo the photographer leaves unsorted, and the photographer sees them as the guide on the upload page. Keep a line saying PUBLIC above the public items and PRIVATE above the private ones, one item per line starting with "-". Changes apply to new uploads; use Ask AI again on photos already sorted.</p>
+          <textarea class="rules" id="rulesText" spellcheck="true"></textarea>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+            <button class="btn accent" type="button" id="rulesSave">Save rules</button>
+            <button class="btn ghost" type="button" id="rulesReset">Reset to default</button>
+            <span class="msg" id="rulesMsg" style="margin:0"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hosts -->
+      <div class="tabpanel" id="tab-hosts" hidden>
+        <div class="card">
+          <h2>Hosts</h2>
+          <p class="note">Add the people every guest should see, such as the bride and groom or the birthday person. Any unsorted photo with all of them in it is shared with everyone automatically, and the AI is told when one of them appears. Add 3 to 5 clear photos each: one person per photo, face large and in focus. Do this before the photographer uploads.</p>
+          <div id="hostList"></div>
+          <div class="row2b" style="margin-top:14px;align-items:end">
+            <div class="field"><label for="hostName">Name</label><input id="hostName" maxlength="40" placeholder="e.g. bride, groom, tola"></div>
+            <div class="field"><button class="btn" type="button" id="hostAddBtn">Add photos</button></div>
+          </div>
+          <input type="file" id="hostPick" accept="image/*" multiple hidden>
+          <p class="msg" id="hostMsg" role="status"></p>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="tabpanel" id="tab-stats" hidden>
+        <div class="stats" id="statsBox"></div>
+        <p class="note" style="margin-top:12px">Counts start from when this version went live.</p>
+      </div>
+    </section>
+
+    <!-- Studio branding -->
+    <section id="brandingView" hidden>
+      <button class="link back" type="button" id="brandingBack">← All events</button>
+      <div class="head"><div><h1>Studio branding</h1><p>Shown to guests on every event as "Photos by", with a link to book you.</p></div></div>
+      <div class="card" style="max-width:720px">
+        <div class="row2b">
+          <div class="field"><label for="bName">Studio name</label><input id="bName" maxlength="80"></div>
+          <div class="field"><label for="bTagline">Short line (optional)</label><input id="bTagline" maxlength="140" placeholder="e.g. Wedding photography across Lagos"></div>
+          <div class="field"><label for="bLink">Website or booking link</label><input id="bLink" maxlength="300" inputmode="url" placeholder="e.g. studio.com/book"></div>
+          <div class="field"><label for="bInstagram">Instagram</label><input id="bInstagram" maxlength="60" placeholder="@studio"></div>
+          <div class="field"><label for="bContact">Email or phone (optional)</label><input id="bContact" maxlength="120"></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0 14px">
+          <div class="logo-prev" id="logoPrev">No logo</div>
+          <button class="btn ghost" type="button" id="logoBtn">Upload logo</button>
+          <button class="btn ghost" type="button" id="logoRemove" hidden>Remove logo</button>
+          <input type="file" id="logoPick" accept="image/png,image/jpeg,image/webp" hidden>
+        </div>
+        <button class="btn accent" type="button" id="brandSave">Save branding</button>
+        <p class="msg" id="brandMsg" role="status"></p>
       </div>
     </section>
   </main>
 </div>
+
+<div class="lightbox" id="lightbox" hidden><img id="lightboxImg" alt=""></div>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <dialog id="eventDialog" aria-labelledby="edTitle">
   <form id="eventForm" method="dialog" novalidate>
@@ -412,7 +556,7 @@
     $("orgLabel").textContent = org.name;
     await loadEvents();
   }
-  function showOnly(id) { ["orgSetup", "eventsView", "eventView"].forEach((s) => ($(s).hidden = s !== id)); window.scrollTo(0, 0); }
+  function showOnly(id) { ["orgSetup", "eventsView", "eventView", "brandingView"].forEach((s) => ($(s).hidden = s !== id)); window.scrollTo(0, 0); }
 
   $("orgForm").addEventListener("submit", (e) => { e.preventDefault(); busy(e.target, async () => {
     const name = $("orgName").value.trim();
@@ -467,6 +611,9 @@
     showOnly("eventView");
     $("evName").textContent = ev.name;
     $("evDates").textContent = range(ev);
+    selectTab("share");
+    $("qrCode").value = (secrets && secrets.guestCode) || "";
+    drawQr();
     $("evLink").textContent = guestLink(ev);
     $("evLink").href = guestLink(ev);
     $("evStatus").textContent = ev.status === "active" ? "Active" : ev.status;
@@ -511,6 +658,294 @@
       openEvent(ev, { guestCode: ev.guestCode, uploadKey: ev.uploadKey });
     } catch (err) { say("edMsg", err.message); }
   }); });
+
+  // ---------- Event tabs ----------
+  const evApi = (action, opts) => api(`/orgs/${org.id}/events/${currentEvent.eventId}/${action}`, opts);
+  const post = (body) => ({ method: "POST", body: JSON.stringify(body) });
+  let toastTimer;
+  function toast(msg) { $("toast").textContent = msg; $("toast").hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => ($("toast").hidden = true), 3000); }
+
+  function selectTab(name) {
+    document.querySelectorAll("#evTabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+    document.querySelectorAll(".tabpanel").forEach((p) => (p.hidden = p.id !== `tab-${name}`));
+    if (name === "photos") loadPhotos();
+    if (name === "rules") loadRules();
+    if (name === "hosts") loadHosts();
+    if (name === "stats") loadStats();
+  }
+  document.querySelectorAll("#evTabs button").forEach((b) => b.addEventListener("click", () => selectTab(b.dataset.tab)));
+
+  // Share: QR code
+  function qrTarget() {
+    const code = $("qrCode").value.trim();
+    return code ? `${guestLink(currentEvent)}&code=${encodeURIComponent(code)}` : guestLink(currentEvent);
+  }
+  function drawQr() {
+    const qr = qrcode(0, "M");
+    qr.addData(qrTarget());
+    qr.make();
+    $("qrBox").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+  }
+  $("qrCode").addEventListener("input", drawQr);
+  $("qrDownload").addEventListener("click", () => {
+    const qr = qrcode(0, "M");
+    qr.addData(qrTarget());
+    qr.make();
+    const n = qr.getModuleCount(), cell = 16, margin = 4 * cell, size = n * cell + margin * 2;
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const g = c.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, size, size); g.fillStyle = "#000";
+    for (let r = 0; r < n; r++) for (let col = 0; col < n; col++) if (qr.isDark(r, col)) g.fillRect(margin + col * cell, margin + r * cell, cell, cell);
+    const a = document.createElement("a");
+    a.href = c.toDataURL("image/png");
+    a.download = `${currentEvent.slug}-guest-qr.png`;
+    a.click();
+  });
+
+  // Photos
+  let photos = [], photoFilter = "all", pollTimer;
+  const isPending = (p) => /^Re-sorting/.test(p.reason);
+  const isStuck = (p) => /^AI sorting unavailable/.test(p.reason);
+  const needsLook = (p) => p.source === "ai" && !isPending(p) && (p.confidence < 0.9 || isStuck(p) || /not sure/i.test(p.reason));
+  const FILTERS = [
+    ["look", "Worth a look", needsLook], ["ai", "Sorted by AI", (p) => p.source === "ai"],
+    ["public", "Public", (p) => p.visibility === "public"], ["private", "Private", (p) => p.visibility === "private"], ["all", "All", () => true],
+  ];
+  function sourceLabel(p) {
+    if (isPending(p)) return "Re-sorting with AI…";
+    if (isStuck(p)) return "AI couldn't sort this";
+    if (p.source === "ai") return `AI, ${Math.round(p.confidence * 100)}% sure`;
+    if (p.source === "photographer") return "Photographer's folder";
+    if (p.source === "hosts") return "Hosts recognised";
+    if (p.source === "you") return "Changed by you";
+    return "Uploaded";
+  }
+  async function loadPhotos() {
+    try { photos = (await evApi("photos")).photos; renderPhotos(); } catch (err) { $("photosSummary").textContent = err.message; }
+  }
+  function renderPhotos() {
+    const pub = photos.filter((p) => p.visibility === "public").length;
+    $("photosSummary").textContent = photos.length ? `${photos.length} photos: ${pub} shared with everyone, ${photos.length - pub} private.` : "";
+    const stuck = photos.filter(isStuck).length;
+    $("resortAllBtn").hidden = !stuck;
+    $("resortAllBtn").textContent = `Re-sort ${stuck} with AI`;
+    $("photoFilters").innerHTML = "";
+    FILTERS.forEach(([key, label, fn]) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.setAttribute("aria-pressed", String(key === photoFilter));
+      b.innerHTML = `${label}<span class="n">${photos.filter(fn).length}</span>`;
+      b.addEventListener("click", () => { photoFilter = key; renderPhotos(); });
+      $("photoFilters").appendChild(b);
+    });
+    const shown = photos.filter(FILTERS.find(([k]) => k === photoFilter)[2]);
+    const grid = $("photoGrid");
+    grid.innerHTML = "";
+    if (!shown.length) {
+      grid.innerHTML = `<p class="empty-small">${photos.length ? "Nothing here." : "No photos yet. Send the photographer link to start uploading."}</p>`;
+      return;
+    }
+    shown.forEach((p) => grid.appendChild(photoCard(p)));
+  }
+  function photoCard(p) {
+    const el = document.createElement("article");
+    el.className = "pcard" + (needsLook(p) ? " look" : "");
+    const imgBtn = document.createElement("button");
+    imgBtn.type = "button"; imgBtn.className = "img"; imgBtn.setAttribute("aria-label", "View larger");
+    const img = document.createElement("img"); img.src = p.thumb; img.loading = "lazy"; img.alt = "";
+    imgBtn.appendChild(img);
+    imgBtn.addEventListener("click", () => { $("lightboxImg").src = p.web; $("lightbox").hidden = false; });
+    const body = document.createElement("div"); body.className = "body";
+    const badge = document.createElement("span"); badge.className = `badge ${p.visibility}`; badge.textContent = p.visibility === "public" ? "Everyone" : "Private";
+    const meta = document.createElement("div"); meta.className = "pmeta"; meta.textContent = [sourceLabel(p), p.uploader].filter(Boolean).join(" · ");
+    body.append(badge, meta);
+    if (p.reason) { const r = document.createElement("div"); r.className = "preason"; r.textContent = p.reason; r.title = p.reason; body.appendChild(r); }
+    const tools = document.createElement("div"); tools.className = "ptools";
+    const again = document.createElement("button"); again.type = "button"; again.className = "link"; again.textContent = "Ask AI again";
+    again.addEventListener("click", () => resort([p.id]));
+    const del = document.createElement("button"); del.type = "button"; del.className = "link danger"; del.textContent = "Delete";
+    del.addEventListener("click", () => removePhoto(p, el));
+    tools.append(again, del);
+    const flip = document.createElement("button"); flip.type = "button"; flip.className = "btn ghost flip";
+    const target = p.visibility === "public" ? "private" : "public";
+    flip.textContent = target === "public" ? "Share with everyone" : "Make private";
+    flip.addEventListener("click", () => movePhoto(p, target, el));
+    if (isPending(p)) { flip.disabled = true; again.disabled = true; }
+    body.append(tools, flip);
+    el.append(imgBtn, body);
+    return el;
+  }
+  async function movePhoto(p, target, el) {
+    el.classList.add("busy");
+    try { await evApi("visibility", post({ id: p.id, visibility: target })); toast(target === "public" ? "Now shared with every guest" : "Now private: only people in it see it"); await loadPhotos(); }
+    catch (err) { el.classList.remove("busy"); toast(err.message); }
+  }
+  async function removePhoto(p, el) {
+    if (!confirm("Delete this photo for everyone, including the original? This can't be undone.")) return;
+    el.classList.add("busy");
+    try { await evApi("delete-photos", post({ ids: [p.id] })); photos = photos.filter((x) => x.id !== p.id); renderPhotos(); toast("Photo deleted"); }
+    catch (err) { el.classList.remove("busy"); toast(err.message); }
+  }
+  async function resort(ids) {
+    try {
+      for (let i = 0; i < ids.length; i += 100) await evApi("resort", post({ ids: ids.slice(i, i + 100) }));
+      toast(`Re-sorting ${ids.length} photo${ids.length === 1 ? "" : "s"}…`);
+      await loadPhotos(); poll(Date.now());
+    } catch (err) { toast(err.message); }
+  }
+  function poll(started) {
+    clearTimeout(pollTimer);
+    if (!photos.some(isPending) || Date.now() - started > 5 * 60 * 1000 || $("tab-photos").hidden) return;
+    pollTimer = setTimeout(() => loadPhotos().then(() => poll(started)), 5000);
+  }
+  $("resortAllBtn").addEventListener("click", () => {
+    const ids = photos.filter(isStuck).map((p) => p.id);
+    if (ids.length && confirm(`Ask the AI to sort ${ids.length} photo${ids.length === 1 ? "" : "s"} it couldn't sort before?`)) resort(ids);
+  });
+  $("photosRefresh").addEventListener("click", loadPhotos);
+  $("lightbox").addEventListener("click", () => { $("lightbox").hidden = true; $("lightboxImg").src = ""; });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("lightbox").hidden) $("lightbox").click(); });
+
+  $("delConfirm").addEventListener("input", () => ($("delAllBtn").disabled = $("delConfirm").value.trim().toUpperCase() !== "DELETE ALL PHOTOS"));
+  $("delAllBtn").addEventListener("click", async () => {
+    if (!confirm(`Delete every photo in "${currentEvent.name}"? This can't be undone.`)) return;
+    $("delAllBtn").disabled = true;
+    say("delMsg", "Deleting… this can take a minute for thousands of photos.", "ok");
+    try {
+      await evApi("delete-all", post({ confirm: $("delConfirm").value, includeHosts: $("delHosts").checked }));
+      const started = Date.now();
+      const check = async () => {
+        await loadPhotos();
+        if (!photos.length || Date.now() - started > 3 * 60 * 1000) {
+          say("delMsg", photos.length ? "Still deleting in the background. Refresh in a few minutes." : "Everything has been deleted.", "ok");
+          $("delConfirm").value = "";
+          return;
+        }
+        setTimeout(check, 4000);
+      };
+      setTimeout(check, 3000);
+    } catch (err) { say("delMsg", err.message); $("delAllBtn").disabled = false; }
+  });
+
+  // Rules
+  async function loadRules() {
+    try { const r = await evApi("rules"); $("rulesText").value = r.rules; say("rulesMsg", r.isDefault ? "Using the default rules" : "", "ok"); }
+    catch (err) { say("rulesMsg", err.message); }
+  }
+  async function saveRules(text) {
+    $("rulesSave").disabled = true;
+    try { const r = await evApi("rules", post({ rules: text })); $("rulesText").value = r.rules; say("rulesMsg", r.isDefault ? "Reset to the default rules" : "Saved. New uploads use these rules.", "ok"); }
+    catch (err) { say("rulesMsg", err.message); } finally { $("rulesSave").disabled = false; }
+  }
+  $("rulesSave").addEventListener("click", () => saveRules($("rulesText").value));
+  $("rulesReset").addEventListener("click", () => { if (confirm("Replace these rules with the default ones?")) saveRules(""); });
+
+  // Hosts
+  function renderHosts(hosts) {
+    const list = $("hostList");
+    list.innerHTML = "";
+    if (!hosts.length) { list.innerHTML = '<p class="note" style="margin:8px 0">No hosts added yet.</p>'; return; }
+    hosts.forEach((h) => {
+      const row = document.createElement("div"); row.className = "hostrow";
+      const label = document.createElement("div");
+      const strong = document.createElement("strong"); strong.textContent = h.name;
+      const n = document.createElement("span"); n.className = "note"; n.textContent = `  ${h.photos} photo${h.photos === 1 ? "" : "s"}`;
+      label.append(strong, n);
+      const btns = document.createElement("div"); btns.style.display = "flex"; btns.style.gap = "8px";
+      const add = document.createElement("button"); add.type = "button"; add.className = "btn ghost"; add.textContent = "Add photos";
+      add.addEventListener("click", () => { $("hostName").value = h.name; $("hostPick").click(); });
+      const clear = document.createElement("button"); clear.type = "button"; clear.className = "link danger"; clear.textContent = "Remove";
+      clear.addEventListener("click", async () => {
+        if (!confirm(`Remove all reference photos of ${h.name}?`)) return;
+        try { renderHosts((await evApi("hosts-clear", post({ name: h.name }))).hosts); } catch (err) { say("hostMsg", err.message); }
+      });
+      btns.append(add, clear);
+      row.append(label, btns);
+      list.appendChild(row);
+    });
+  }
+  async function loadHosts() { try { renderHosts((await evApi("hosts")).hosts); } catch (err) { say("hostMsg", err.message); } }
+  function shrink(file, max = 1600) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(img.src);
+        resolve(c.toDataURL("image/jpeg", 0.9));
+      };
+      img.onerror = () => reject(new Error("Couldn't read that image"));
+      img.src = URL.createObjectURL(file);
+    });
+  }
+  $("hostAddBtn").addEventListener("click", () => {
+    if (!$("hostName").value.trim()) return say("hostMsg", "Type a name first, for example bride.");
+    $("hostPick").click();
+  });
+  $("hostPick").addEventListener("change", async () => {
+    const files = [...$("hostPick").files];
+    $("hostPick").value = "";
+    const name = $("hostName").value.trim();
+    let ok = 0; const failed = [];
+    for (const [i, file] of files.entries()) {
+      say("hostMsg", `Adding ${i + 1} of ${files.length}…`, "ok");
+      try { renderHosts((await evApi("hosts", post({ name, image: await shrink(file) }))).hosts); ok++; }
+      catch (err) { failed.push(`${file.name}: ${err.message}`); }
+    }
+    say("hostMsg", `${ok} added.` + (failed.length ? ` ${failed.join(" ")}` : ""), failed.length ? "err" : "ok");
+  });
+
+  // Stats
+  async function loadStats() {
+    try {
+      const s = await evApi("stats");
+      $("statsBox").innerHTML = "";
+      [[s.selfies, "selfies taken"], [s.guestsFound, "guests found in photos"], [s.downloads, "downloads"],
+       [s.photoViews, "photos opened"], [s.publicPhotos, "shared photos"], [s.privatePhotos, "private photos"]].forEach(([n, label]) => {
+        const d = document.createElement("div"); d.className = "stat";
+        const b = document.createElement("b"); b.textContent = n;
+        const sp = document.createElement("span"); sp.textContent = label;
+        d.append(b, sp); $("statsBox").appendChild(d);
+      });
+    } catch (err) { $("statsBox").textContent = err.message; }
+  }
+
+  // ---------- Studio branding ----------
+  const BRAND = { name: "bName", tagline: "bTagline", link: "bLink", instagram: "bInstagram", contact: "bContact" };
+  function showBranding(b) {
+    Object.entries(BRAND).forEach(([k, id]) => ($(id).value = b[k] || ""));
+    $("logoPrev").innerHTML = "";
+    if (b.logoUrl) { const i = document.createElement("img"); i.src = b.logoUrl; i.alt = "Logo"; $("logoPrev").appendChild(i); }
+    else $("logoPrev").textContent = "No logo";
+    $("logoRemove").hidden = !b.logoUrl;
+    $("logoBtn").textContent = b.logoUrl ? "Replace logo" : "Upload logo";
+  }
+  $("brandingNavBtn").addEventListener("click", async () => {
+    showOnly("brandingView"); say("brandMsg", "");
+    try { showBranding(await api(`/orgs/${org.id}/branding`)); } catch (err) { say("brandMsg", err.message); }
+  });
+  $("brandingBack").addEventListener("click", loadEvents);
+  $("brandSave").addEventListener("click", async () => {
+    const body = {}; Object.entries(BRAND).forEach(([k, id]) => (body[k] = $(id).value.trim()));
+    $("brandSave").disabled = true;
+    try { showBranding(await api(`/orgs/${org.id}/branding`, { method: "PUT", body: JSON.stringify(body) })); say("brandMsg", "Saved. Guests see it on every event.", "ok"); }
+    catch (err) { say("brandMsg", err.message); } finally { $("brandSave").disabled = false; }
+  });
+  $("logoBtn").addEventListener("click", () => $("logoPick").click());
+  $("logoPick").addEventListener("change", async () => {
+    const file = $("logoPick").files[0]; $("logoPick").value = "";
+    if (!file) return;
+    if (file.size > 2_000_000) return say("brandMsg", "Keep the logo under 2 MB.");
+    const image = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+    try { showBranding(await api(`/orgs/${org.id}/branding-logo`, post({ image }))); say("brandMsg", "Logo saved.", "ok"); }
+    catch (err) { say("brandMsg", err.message); }
+  });
+  $("logoRemove").addEventListener("click", async () => {
+    if (!confirm("Remove the logo?")) return;
+    try { showBranding(await api(`/orgs/${org.id}/branding-logo`, post({ image: "" }))); } catch (err) { say("brandMsg", err.message); }
+  });
 
   // ---------- Start ----------
   (async () => {

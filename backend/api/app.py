@@ -31,6 +31,8 @@ from datetime import date, timedelta
 
 import boto3
 from boto3.dynamodb.conditions import Key
+
+import manage
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
@@ -82,6 +84,8 @@ def handler(event, _context):
             return guest_match(event_for_slug(params["slug"]), body(event))
         if route == "GET /e/{slug}/gallery":
             return guest_gallery(event_for_slug(params["slug"]), event)
+        if route == "POST /e/{slug}/track":
+            return guest_track(event_for_slug(params["slug"]), body(event))
         if route == "POST /e/{slug}/upload-urls":
             return upload_urls(event_for_slug(params["slug"]), body(event))
         if route == "POST /e/{slug}/upload-guide":
@@ -106,6 +110,15 @@ def handler(event, _context):
             return new_code_for_event(org_id, params["eventId"], body(event))
         if route == "GET /orgs/{orgId}/events/{eventId}":
             return get_event(org_id, params["eventId"])
+        if route in ("GET /orgs/{orgId}/events/{eventId}/{action}", "POST /orgs/{orgId}/events/{eventId}/{action}"):
+            data = body(event) if route.startswith("POST") else {}
+            return manage.handle_event_action(ctx(), route.split(" ")[0], org_id, params["eventId"], params["action"], data)
+        if route == "GET /orgs/{orgId}/branding":
+            return manage.get_branding(ctx(), org_id)
+        if route == "PUT /orgs/{orgId}/branding":
+            return manage.save_branding(ctx(), org_id, body(event))
+        if route == "POST /orgs/{orgId}/branding-logo":
+            return manage.save_logo(ctx(), org_id, body(event))
         return respond(404, {"error": "Not found."})
     except HttpError as err:
         return respond(err.status, {"error": str(err)})
@@ -243,8 +256,33 @@ def public_event(slug):
         raise HttpError(404, "Event not found.")
     return respond(200, {
         "name": item["name"], "startDate": item["startDate"], "endDate": item["endDate"],
-        "photosBy": org.get("name", ""), "branding": org.get("branding", {}),
+        "photosBy": org.get("name", ""), "branding": manage.public_branding(ctx(), link["orgId"]),
     })
+
+
+def ctx():
+    return manage.Ctx(table, s3, rekognition, BUCKET, HttpError, respond, DEFAULT_RULES, _list_cache, URL_TTL)
+
+
+def bump(ev, **fields):
+    """Add to the event's stat counters; never lets a stats problem break the guest's request."""
+    try:
+        names = {f"#{k}": k for k in fields}
+        table.update_item(Key={"pk": ev["pk"], "sk": ev["sk"]},
+                          UpdateExpression="ADD " + ", ".join(f"#{k} :{k}" for k in fields),
+                          ExpressionAttributeNames=names, ExpressionAttributeValues={f":{k}": v for k, v in fields.items()})
+    except ClientError as err:
+        print(f"stats update failed: {err}")
+
+
+def guest_track(ev, data):
+    kind = data.get("type")
+    token = str(data.get("token", ""))
+    if kind in ("download", "view") and token:
+        item = table.get_item(Key={"pk": f"SESSION#{token}", "sk": "META"}).get("Item")
+        if item and item.get("eventId") == ev["eventId"]:
+            bump(ev, **({"statDownloads": 1} if kind == "download" else {"statViews": 1}))
+    return respond(200, {})
 
 
 # ---------- Guests ----------
@@ -291,6 +329,7 @@ def guest_match(ev, data):
     now = int(time.time())
     table.put_item(Item={"pk": f"SESSION#{token}", "sk": "META", "eventId": event_id, "privateIds": private_ids,
                          "createdAt": now, "expiresAt": now + SESSION_DAYS * 86400})
+    bump(ev, statSelfies=1, statGuestsFound=1 if private_ids else 0)
     return respond(200, {"token": token, **build_gallery(event_id, private_ids)})
 
 

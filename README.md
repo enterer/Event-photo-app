@@ -4,13 +4,13 @@ Multi-event version of the wedding selfie photo app, for photographers and event
 
 **This repo never deploys to eu-west-1.** That region runs the wedding (`wedding-photos` stack, separate repo). The template refuses eu-west-1, and `scripts/deploy.sh` refuses the wedding region and stack name.
 
-## Status: week 2
+## Status: week 3
 
-- Sign-in, studios, events (dashboard)
-- Guest page `guest.html?e=<slug>`: event code, selfie, public photos plus the ones the guest is in
-- Photographer page `upload.html?e=<slug>#k=<upload key>`: folder upload; "Photos for everyone" and "Private photos" folders are respected, everything else is sorted by AI (Claude Haiku 4.5 on Bedrock, us-east-1)
-- Processor: resize, host recognition (once host faces exist), AI sorting with the event's rules, per-event face collection `ev-<eventId>`
-- Guest codes and upload keys are shown once when an event is created and stored only as hashes
+- Sign-in, studios, events (dashboard), with studio branding (name, logo, booking link, Instagram) shown to guests as "Photos by"
+- Event page tabs: **Share** (QR code with optional guest code, new photographer link or guest code), **Photos** (review queue: share or make private, ask AI again, delete one, re-sort failed ones, delete all), **Sorting rules**, **Hosts** (reference faces; photos with every host are shared automatically), **Stats** (selfies, guests found, downloads, views, photo counts)
+- Guest page `guest.html?e=<slug>` and photographer page `upload.html?e=<slug>#k=<upload key>`
+- Processor: resize, host recognition, AI sorting with the event's rules, per-event face collections, re-sort and delete-all jobs
+- `frontend/dashboard/qrcode.js` is qrcode-generator 1.4.4 by Kazuhiko Arase (MIT licence)
 
 ## Deploy (Git Bash)
 

@@ -498,7 +498,10 @@
     const token = store.get(TOKEN_KEY);
     if (!token) return;
     try {
-      // Stats endpoint comes with the dashboard's stats tab; nothing is sent yet.
+      fetch(`${BASE}/track`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token, type }), keepalive: true,
+      }).catch(() => {});
     } catch {}
   }
   $("downloadLink").addEventListener("click", () => track("download"));

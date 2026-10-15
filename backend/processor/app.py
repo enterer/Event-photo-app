@@ -20,6 +20,7 @@ from urllib.parse import unquote_plus
 
 import boto3
 from botocore.config import Config
+from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 from PIL import Image, ImageOps
 
@@ -56,6 +57,12 @@ KEY_RE = re.compile(r"^incoming/([a-z0-9]{12})/([a-z0-9]{12})/(public|private|au
 
 
 def handler(event, _context):
+    if event.get("deleteAll"):  # from the dashboard's "Delete all photos"
+        delete_all(event["bucket"], event["orgId"], event["eventId"], bool(event.get("includeHosts")))
+        return
+    if "resort" in event:       # from the dashboard's "Ask AI again" / "Re-sort with AI"
+        resort(event["bucket"], event["orgId"], event["eventId"], event["resort"])
+        return
     for record in event.get("Records", []):
         process(record["s3"]["bucket"]["name"], unquote_plus(record["s3"]["object"]["key"]))
 
@@ -114,6 +121,73 @@ def decide(event_id, ev, img):
     if hosts and found == hosts:
         return {"visibility": "public", "confidence": 1.0, "reason": "All hosts are in this photo", "source": "hosts"}
     return classify(ev, resized_jpeg(img, 1568, 80), hosts, found)
+
+
+# ---------- Re-sort and delete (requested from the dashboard) ----------
+
+def resort(bucket, org_id, event_id, pid):
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,120}", pid) or not re.fullmatch(r"[a-z0-9]{12}", event_id):
+        return
+    ev = table.get_item(Key={"pk": f"ORG#{org_id}", "sk": f"EVENT#{event_id}"}).get("Item")
+    base = f"events/{event_id}"
+    current = next((v for v in ("public", "private") if exists(bucket, f"{base}/{v}/thumb/{pid}.jpg")), None)
+    if not ev or not current:
+        print(f"resort {event_id}/{pid}: not found")
+        return
+    web = s3.get_object(Bucket=bucket, Key=f"{base}/{current}/web/{pid}.jpg")["Body"].read()
+    decision = decide(event_id, ev, Image.open(io.BytesIO(web)).convert("RGB"))
+    target = decision["visibility"]
+    if decision["reason"].startswith("AI sorting unavailable"):
+        target, decision["reason"] = current, f"AI sorting unavailable, left {current}"
+
+    key = {"pk": f"EVENT#{event_id}", "sk": f"PHOTO#{pid}"}
+    rec = table.get_item(Key=key).get("Item") or {**key, "photoId": pid, "createdAt": int(time.time())}
+    if target != current:
+        for size in ("original", "web", "thumb"):
+            s3.copy_object(Bucket=bucket, CopySource={"Bucket": bucket, "Key": f"{base}/{current}/{size}/{pid}.jpg"},
+                           Key=f"{base}/{target}/{size}/{pid}.jpg", ContentType="image/jpeg", MetadataDirective="REPLACE")
+        if target == "private":
+            rec["faceIds"] = index_faces(event_id, web, pid)
+        else:
+            ids = list(rec.get("faceIds") or [])
+            for i in range(0, len(ids), 4096):
+                rekognition.delete_faces(CollectionId=f"ev-{event_id}", FaceIds=ids[i:i + 4096])
+            rec["faceIds"] = []
+        for size in ("original", "web", "thumb"):
+            s3.delete_object(Bucket=bucket, Key=f"{base}/{current}/{size}/{pid}.jpg")
+    rec.update(visibility=target, source=decision["source"], reason=decision["reason"][:500],
+               confidence=str(round(decision["confidence"], 2)), photoId=pid)
+    table.put_item(Item=rec)
+    print(f"resort {event_id}/{pid}: {current} -> {target} ({decision['reason']})")
+
+
+def delete_all(bucket, org_id, event_id, include_hosts):
+    if not re.fullmatch(r"[a-z0-9]{12}", event_id) or not re.fullmatch(r"[a-z0-9]{12}", org_id):
+        return
+    removed = 0
+    for prefix in (f"events/{event_id}/", f"incoming/{org_id}/{event_id}/"):
+        for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
+            keys = [{"Key": o["Key"]} for o in page.get("Contents", [])]
+            for i in range(0, len(keys), 1000):
+                s3.delete_objects(Bucket=bucket, Delete={"Objects": keys[i:i + 1000], "Quiet": True})
+                removed += len(keys[i:i + 1000])
+    for collection in [f"ev-{event_id}"] + ([f"ev-{event_id}-hosts"] if include_hosts else []):
+        try:
+            rekognition.delete_collection(CollectionId=collection)
+        except rekognition.exceptions.ResourceNotFoundException:
+            pass
+    _hosts_cache.pop(event_id, None)
+    kwargs = {"KeyConditionExpression": Key("pk").eq(f"EVENT#{event_id}") & Key("sk").begins_with("PHOTO#"),
+              "ProjectionExpression": "pk, sk"}
+    with table.batch_writer() as batch:
+        while True:
+            page = table.query(**kwargs)
+            for item in page.get("Items", []):
+                batch.delete_item(Key={"pk": item["pk"], "sk": item["sk"]})
+            if "LastEvaluatedKey" not in page:
+                break
+            kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]
+    print(f"delete_all {event_id}: removed {removed} files (hosts too: {include_hosts})")
 
 
 # ---------- Host recognition (couple, birthday person, etc.) ----------

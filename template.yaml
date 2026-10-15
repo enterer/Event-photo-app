@@ -135,13 +135,16 @@ Resources:
         Variables:
           TABLE: !Ref PlatformTable
           BUCKET: !Ref MediaBucket
+          PROCESSOR_FUNCTION: !Ref ProcessorFunction
           STAGE: !Ref Stage
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref PlatformTable }
         - S3CrudPolicy: { BucketName: !Ref MediaBucket }
+        - LambdaInvokePolicy: { FunctionName: !Ref ProcessorFunction }
         - Statement:
             - Effect: Allow
-              Action: rekognition:SearchFacesByImage
+              Action: [rekognition:SearchFacesByImage, rekognition:IndexFaces, rekognition:DeleteFaces,
+                       rekognition:ListFaces, rekognition:CreateCollection]
               Resource: !Sub arn:aws:rekognition:${AWS::Region}:${AWS::AccountId}:collection/ev-*
       Events:
         Me:
@@ -192,6 +195,52 @@ Resources:
             Method: POST
             Auth:
               Authorizer: Cognito
+        EventActionGet:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /orgs/{orgId}/events/{eventId}/{action}
+            Method: GET
+            Auth:
+              Authorizer: Cognito
+        EventActionPost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /orgs/{orgId}/events/{eventId}/{action}
+            Method: POST
+            Auth:
+              Authorizer: Cognito
+        BrandingGet:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /orgs/{orgId}/branding
+            Method: GET
+            Auth:
+              Authorizer: Cognito
+        BrandingPut:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /orgs/{orgId}/branding
+            Method: PUT
+            Auth:
+              Authorizer: Cognito
+        BrandingLogo:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /orgs/{orgId}/branding-logo
+            Method: POST
+            Auth:
+              Authorizer: Cognito
+        GuestTrack:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /e/{slug}/track
+            Method: POST
         PublicEvent:
           Type: HttpApi
           Properties:
@@ -246,7 +295,8 @@ Resources:
               Action: s3:ListBucket
               Resource: !Sub "arn:aws:s3:::${AWS::StackName}-mediabucket-*"
             - Effect: Allow
-              Action: [rekognition:IndexFaces, rekognition:CreateCollection, rekognition:SearchFacesByImage, rekognition:ListFaces]
+              Action: [rekognition:IndexFaces, rekognition:CreateCollection, rekognition:SearchFacesByImage, rekognition:ListFaces,
+                       rekognition:DeleteFaces, rekognition:DeleteCollection]
               Resource: !Sub arn:aws:rekognition:${AWS::Region}:${AWS::AccountId}:collection/ev-*
             - Effect: Allow
               Action: rekognition:DetectFaces

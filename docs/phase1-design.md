@@ -89,8 +89,8 @@ Guest and photographer-upload routes keep the wedding version's shape, with the 
 |---|---|
 | 1 (Oct 8) | Template: table, bucket, Cognito, API skeleton; org and event creation |
 | 2 (Oct 15) | Port guest flow and processor with event scoping; per-event collections |
-| 3 (Oct 22) | Dashboard: events list, create event, share tab with QR; branding |
-| 4 (Oct 29) | Review, rules and host faces tabs; Stripe checkout and webhook; plan limits |
+| 3 (Oct 15) | Done: event tabs (share and QR, photos review, rules, hosts, stats) and studio branding |
+| 4 (Oct 22) | Stripe checkout with per-event and monthly pricing; plan limits; WhatsApp share button |
 | Nov 5 to 21 | Light work only: bug fixes, docs, deletion job; wedding takes priority |
 | After Nov 21 | Beta with the wedding photographer; production account; security review |
 

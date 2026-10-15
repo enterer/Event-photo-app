@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>EventPhotos · Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<script src="qrcode.js"></script>
+<style>
+  :root {
+    --bg: #f7f8fa; --panel: #ffffff; --ink: #121a2b; --muted: #5d6577; --line: #dfe3ea;
+    --accent: #c8246c; --accent-ink: #ffffff; --ok: #2f6b4a; --danger: #a3312b; --code: #eef1f5;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: 400 15px/1.55 var(--body); min-height: 100vh; }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  .dev-banner { background: #2a2622; color: #f3e9dc; font-size: 12px; text-align: center; padding: 6px 12px; letter-spacing: .04em; }
+
+  /* Auth */
+  .auth { max-width: 380px; margin: 9vh auto 4rem; padding: 0 16px; }
+  .brand { font: 600 26px/1.1 var(--display); letter-spacing: -.01em; margin: 0 0 4px; }
+  .brand span { color: var(--accent); }
+  .lead { color: var(--muted); margin: 0 0 28px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
+  .card h2 { font: 600 20px/1.2 var(--display); margin: 0 0 16px; }
+  .field { margin: 0 0 14px; }
+  .field label { display: block; font-weight: 500; font-size: 13px; margin-bottom: 6px; }
+  .field input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  .field .hint { color: var(--muted); font-size: 12.5px; margin-top: 5px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--ink); background: var(--ink); color: #fff; font-weight: 500; cursor: pointer; }
+  .btn.full { width: 100%; }
+  .btn.accent { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .link { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  .switch { margin: 16px 0 0; text-align: center; color: var(--muted); font-size: 14px; }
+  .msg { min-height: 1.4em; margin: 10px 0 0; font-size: 14px; }
+  .msg.err { color: var(--danger); }
+  .msg.ok { color: var(--ok); }
+
+  /* App shell */
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .top .brand { font-size: 20px; margin: 0; }
+  .top .who { color: var(--muted); font-size: 13.5px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+  .org-name { font-weight: 600; color: var(--ink); }
+  main.app { max-width: 980px; margin: 0 auto; padding: 28px 16px 64px; }
+  .head { display: flex; align-items: end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  .head h1 { font: 600 28px/1.15 var(--display); margin: 0; letter-spacing: -.01em; }
+  .head p { margin: 4px 0 0; color: var(--muted); }
+
+  .events { display: grid; gap: 10px; }
+  .event { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; cursor: pointer; text-align: left; width: 100%; }
+  .event:hover { border-color: #cfc6bb; }
+  .event .name { font-weight: 600; font-size: 16px; }
+  .event .meta { color: var(--muted); font-size: 13.5px; }
+  .pill { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: #e9f2ec; color: var(--ok); font-weight: 500; justify-self: end; }
+  .pill.past { background: #eee9e2; color: var(--muted); }
+  .empty { background: var(--panel); border: 1px dashed var(--line); border-radius: 12px; padding: 40px 20px; text-align: center; color: var(--muted); }
+  .empty strong { display: block; color: var(--ink); font: 600 18px/1.3 var(--display); margin-bottom: 6px; }
+
+  /* Event detail */
+  .back { margin-bottom: 14px; display: inline-block; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+  .kv { display: grid; grid-template-columns: 120px 1fr; gap: 8px 12px; font-size: 14px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; word-break: break-word; }
+  .secret { background: #fff7ef; border: 1px solid #f0d6bf; border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+  .secret h3 { margin: 0 0 4px; font-size: 15px; }
+  .secret p { margin: 0 0 12px; color: var(--muted); font-size: 13.5px; }
+  .copyrow { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .copyrow label { width: 110px; flex: none; font-size: 13px; color: var(--muted); }
+  .copyrow code { flex: 1; background: var(--code); border-radius: 6px; padding: 8px 10px; font: 13px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace; overflow-x: auto; white-space: nowrap; }
+  .copyrow button { flex: none; padding: 7px 10px; font-size: 13px; }
+  .todo { color: var(--muted); font-size: 14px; }
+  .todo ul { margin: 8px 0 0; padding-left: 18px; }
+
+  /* Dialog */
+  dialog { border: 1px solid var(--line); border-radius: 12px; padding: 24px; width: min(440px, calc(100vw - 32px)); background: var(--panel); color: var(--ink); }
+  dialog::backdrop { background: rgba(29, 27, 25, .4); }
+  dialog h2 { font: 600 20px/1.2 var(--display); margin: 0 0 16px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+
+  /* Event tabs */
+  .tabbar { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 6px 0 18px; overflow-x: auto; }
+  .tabbar button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px; cursor: pointer; color: var(--muted); font-weight: 500; white-space: nowrap; }
+  .tabbar button[aria-selected=true] { color: var(--ink); border-bottom-color: var(--accent); }
+  .qrbox { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+  .qr { width: 200px; height: 200px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 10px; flex: none; }
+  .qr svg, .qr img { width: 100%; height: 100%; display: block; }
+  .qr-side { flex: 1; min-width: 220px; }
+  .note { color: var(--muted); font-size: 13.5px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .filters button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 13.5px; }
+  .filters button[aria-pressed=true] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .filters .n { opacity: .65; margin-left: 4px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+  .pcard { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+  .pcard.look { border-color: #d9a066; }
+  .pcard.busy { opacity: .5; pointer-events: none; }
+  .pcard .img { aspect-ratio: 4 / 3; background: #eee9e2; border: 0; padding: 0; cursor: zoom-in; width: 100%; display: block; }
+  .pcard .img { position: relative; overflow: hidden; }
+  .pcard .img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pcard .body { padding: 10px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .badge { align-self: flex-start; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .badge.public { background: #e9f2ec; color: var(--ok); }
+  .badge.private { background: #f1ece5; color: var(--ink); }
+  .pmeta { font-size: 12.5px; color: var(--muted); }
+  .preason { font-size: 13px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .ptools { display: flex; justify-content: space-between; gap: 6px; margin-top: auto; }
+  .link.danger { color: var(--danger); }
+  .pcard .flip { width: 100%; padding: 7px 10px; font-size: 13.5px; }
+  .empty-small { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 32px 12px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .stat b { display: block; font: 600 28px/1.1 var(--display); }
+  .stat span { color: var(--muted); font-size: 13px; }
+  textarea.rules { width: 100%; min-height: 300px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; font: 14px/1.5 var(--body); background: #fff; }
+  .hostrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .hostrow:last-child { border-bottom: 0; }
+  .danger-card { border-color: #e7c4bd; }
+  .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .logo-prev { height: 56px; min-width: 56px; max-width: 200px; border: 1px dashed var(--line); border-radius: 8px; display: grid; place-items: center; color: var(--muted); font-size: 12px; padding: 4px; background: #fff; }
+  .logo-prev img { max-height: 46px; max-width: 190px; object-fit: contain; }
+  .row2b { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 14px; }
+  .lightbox { position: fixed; inset: 0; background: rgb(20, 18, 16); display: grid; place-items: center; z-index: 20; padding: 16px; cursor: zoom-out; }
+  .lightbox img { max-width: 100%; max-height: calc(100dvh - 32px); object-fit: contain; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 9px 16px; border-radius: 999px; font-size: 14px; z-index: 30; }
+
+  @media (max-width: 560px) {
+    .event { grid-template-columns: 1fr; }
+    .pill { justify-self: start; }
+    .kv { grid-template-columns: 1fr; }
+    .copyrow { flex-wrap: wrap; }
+    .copyrow label { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="dev-banner">Development build · test data only</div>
+
+<!-- ============ Signed out ============ -->
+<section class="auth" id="authView" hidden>
+  <a class="brand" href="index.html" style="text-decoration:none;color:inherit">Event<span>Photos</span></a>
+  <p class="lead">Selfie-based photo delivery for your events.</p>
+
+  <form class="card" id="signInForm" novalidate>
+    <h2>Sign in</h2>
+    <div class="field"><label for="siEmail">Email</label><input id="siEmail" type="email" autocomplete="username" required></div>
+    <div class="field"><label for="siPassword">Password</label><input id="siPassword" type="password" autocomplete="current-password" required></div>
+    <button class="btn full" type="submit">Sign in</button>
+    <p class="msg" id="siMsg" role="alert"></p>
+    <p class="switch">New here? <button class="link" type="button" data-go="signUpForm">Create an account</button></p>
+    <p class="switch" style="margin-top:6px"><button class="link" type="button" data-go="forgotForm">Forgot password?</button></p>
+  </form>
+
+  <form class="card" id="signUpForm" novalidate hidden>
+    <h2>Create an account</h2>
+    <div class="field"><label for="suEmail">Email</label><input id="suEmail" type="email" autocomplete="username" required></div>
+    <div class="field"><label for="suPassword">Password</label><input id="suPassword" type="password" autocomplete="new-password" required>
+      <div class="hint">At least 10 characters, with a number and a lowercase letter.</div></div>
+    <button class="btn full" type="submit">Create account</button>
+    <p class="msg" id="suMsg" role="alert"></p>
+    <p class="switch">Have an account? <button class="link" type="button" data-go="signInForm">Sign in</button></p>
+  </form>
+
+  <form class="card" id="confirmForm" novalidate hidden>
+    <h2>Check your email</h2>
+    <p class="lead" style="margin:0 0 16px">We sent a 6-digit code to <strong id="cfEmailLabel"></strong>.</p>
+    <div class="field"><label for="cfCode">Verification code</label><input id="cfCode" inputmode="numeric" autocomplete="one-time-code" required></div>
+    <button class="btn full" type="submit">Verify and sign in</button>
+    <p class="msg" id="cfMsg" role="alert"></p>
+    <p class="switch"><button class="link" type="button" id="resendBtn">Send a new code</button></p>
+  </form>
+
+  <form class="card" id="forgotForm" novalidate hidden>
+    <h2>Reset your password</h2>
+    <div class="field"><label for="fgEmail">Email</label><input id="fgEmail" type="email" autocomplete="username" required></div>
+    <div id="fgStep2" hidden>
+      <div class="field"><label for="fgCode">Code from the email</label><input id="fgCode" inputmode="numeric" autocomplete="one-time-code"></div>
+      <div class="field"><label for="fgPassword">New password</label><input id="fgPassword" type="password" autocomplete="new-password"></div>
+    </div>
+    <button class="btn full" type="submit" id="fgBtn">Send reset code</button>
+    <p class="msg" id="fgMsg" role="alert"></p>
+    <p class="switch"><button class="link" type="button" data-go="signInForm">Back to sign in</button></p>
+  </form>
+</section>
+
+<!-- ============ Signed in ============ -->
+<div id="appView" hidden>
+  <header class="top">
+    <a class="brand" href="index.html" style="text-decoration:none;color:inherit">Event<span>Photos</span></a>
+    <div class="who"><button class="link" type="button" id="brandingNavBtn">Studio branding</button><span class="org-name" id="orgLabel"></span><span id="userLabel"></span><button class="btn ghost" type="button" id="signOutBtn">Sign out</button></div>
+  </header>
+
+  <main class="app">
+    <!-- First-time setup -->
+    <section id="orgSetup" hidden>
+      <div class="card" style="max-width:460px">
+        <h2>Set up your studio</h2>
+        <p class="lead" style="margin:-6px 0 16px">This name appears on your guests' photo pages as "Photos by".</p>
+        <form id="orgForm" novalidate>
+          <div class="field"><label for="orgName">Studio or business name</label><input id="orgName" maxlength="80" required></div>
+          <button class="btn accent" type="submit">Continue</button>
+          <p class="msg" id="orgMsg" role="alert"></p>
+        </form>
+      </div>
+    </section>
+
+    <!-- Events list -->
+    <section id="eventsView" hidden>
+      <div class="head">
+        <div><h1>Events</h1><p id="eventsSummary"></p></div>
+        <button class="btn accent" type="button" id="newEventBtn">New event</button>
+      </div>
+      <div class="events" id="eventsList"></div>
+    </section>
+
+    <!-- Event detail -->
+    <section id="eventView" hidden>
+      <button class="link back" type="button" id="backBtn">← All events</button>
+      <div class="head"><div><h1 id="evName"></h1><p id="evDates"></p></div></div>
+
+      <div class="secret" id="secretBox" hidden>
+        <h3>Save these now</h3>
+        <p>For security we only store a scrambled version, so this is the only time they're shown. Keep them in your password manager.</p>
+        <div class="copyrow" id="rowGuest"><label>Guest code</label><code id="sGuest"></code><button class="btn ghost" type="button" data-copy="sGuest">Copy</button></div>
+        <div class="copyrow" id="rowUpload"><label>Upload key</label><code id="sUpload"></code><button class="btn ghost" type="button" data-copy="sUpload">Copy</button></div>
+        <div class="copyrow" id="rowGuestLink"><label>Guest link + code</label><code id="sGuestLink"></code><button class="btn ghost" type="button" data-copy="sGuestLink">Copy</button></div>
+        <div class="copyrow" id="rowUploadLink"><label>Photographer link</label><code id="sUploadLink"></code><button class="btn ghost" type="button" data-copy="sUploadLink">Copy</button></div>
+      </div>
+
+      <div class="tabbar" role="tablist" id="evTabs">
+        <button role="tab" type="button" data-tab="share" aria-selected="true">Share</button>
+        <button role="tab" type="button" data-tab="photos" aria-selected="false">Photos</button>
+        <button role="tab" type="button" data-tab="rules" aria-selected="false">Sorting rules</button>
+        <button role="tab" type="button" data-tab="hosts" aria-selected="false">Hosts</button>
+        <button role="tab" type="button" data-tab="stats" aria-selected="false">Stats</button>
+      </div>
+
+      <!-- Share -->
+      <div class="tabpanel" id="tab-share">
+        <div class="grid2">
+          <div class="card">
+            <h2>Guest QR code</h2>
+            <div class="qrbox">
+              <div class="qr" id="qrBox" aria-label="QR code for the guest link"></div>
+              <div class="qr-side">
+                <div class="field"><label for="qrCode">Guest code to include (optional)</label><input id="qrCode" autocomplete="off" placeholder="e.g. 7K4PQX2M">
+                  <div class="hint">With the code included, guests scan and go straight to the selfie. Without it, they type the code from the card.</div></div>
+                <button class="btn" type="button" id="qrDownload">Download QR (PNG)</button>
+              </div>
+            </div>
+            <p class="note" style="margin:14px 0 0">Guest link: <a id="evLink" target="_blank" rel="noopener"></a></p>
+          </div>
+          <div class="card">
+            <h2>Details</h2>
+            <dl class="kv">
+              <dt>Status</dt><dd id="evStatus"></dd>
+              <dt>Photos deleted</dt><dd id="evDelete"></dd>
+              <dt>Event ID</dt><dd id="evId" style="font-family:ui-monospace,Consolas,monospace;font-size:13px"></dd>
+            </dl>
+            <h2 style="margin-top:20px">Lost a link?</h2>
+            <p class="note" style="margin:0 0 12px">Make a new one. The old one stops working straight away, so send the new one to everyone who needs it.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn ghost" type="button" id="newUploadBtn">New photographer link</button>
+              <button class="btn ghost" type="button" id="newGuestBtn">New guest code</button>
+            </div>
+            <p class="msg" id="newCodeMsg" role="alert"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Photos -->
+      <div class="tabpanel" id="tab-photos" hidden>
+        <div class="toolbar">
+          <div class="filters" id="photoFilters"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn accent" type="button" id="resortAllBtn" hidden></button>
+            <button class="btn ghost" type="button" id="photosRefresh">Refresh</button>
+          </div>
+        </div>
+        <p class="note" id="photosSummary" style="margin:0 0 12px"></p>
+        <div class="pgrid" id="photoGrid"></div>
+        <div class="card danger-card" style="margin-top:28px">
+          <h2 style="color:var(--danger)">Delete all photos</h2>
+          <p class="note">Permanently deletes every photo in this event (originals included), every guest's face data and every record. Guests see an empty gallery. Make sure the client has their own copies first.</p>
+          <label style="display:flex;gap:8px;align-items:flex-start;margin:10px 0;font-size:14px"><input type="checkbox" id="delHosts" style="margin-top:4px"> <span>Also delete the hosts' reference photos</span></label>
+          <div class="field" style="max-width:340px"><label for="delConfirm">Type DELETE ALL PHOTOS to confirm</label><input id="delConfirm" autocomplete="off"></div>
+          <button class="btn danger" type="button" id="delAllBtn" disabled>Delete everything</button>
+          <p class="msg" id="delMsg" role="status"></p>
+        </div>
+      </div>
+
+      <!-- Rules -->
+      <div class="tabpanel" id="tab-rules" hidden>
+        <div class="card">
+          <h2>Sorting rules</h2>
+          <p class="note">The AI follows these for every photo the photographer leaves unsorted, and the photographer sees them as the guide on the upload page. Keep a line saying PUBLIC above the public items and PRIVATE above the private ones, one item per line starting with "-". Changes apply to new uploads; use Ask AI again on photos already sorted.</p>
+          <textarea class="rules" id="rulesText" spellcheck="true"></textarea>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+            <button class="btn accent" type="button" id="rulesSave">Save rules</button>
+            <button class="btn ghost" type="button" id="rulesReset">Reset to default</button>
+            <span class="msg" id="rulesMsg" style="margin:0"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hosts -->
+      <div class="tabpanel" id="tab-hosts" hidden>
+        <div class="card">
+          <h2>Hosts</h2>
+          <p class="note">Add the people every guest should see, such as the bride and groom or the birthday person. Any unsorted photo with all of them in it is shared with everyone automatically, and the AI is told when one of them appears. Add 3 to 5 clear photos each: one person per photo, face large and in focus. Do this before the photographer uploads.</p>
+          <div id="hostList"></div>
+          <div class="row2b" style="margin-top:14px;align-items:end">
+            <div class="field"><label for="hostName">Name</label><input id="hostName" maxlength="40" placeholder="e.g. bride, groom, tola"></div>
+            <div class="field"><button class="btn" type="button" id="hostAddBtn">Add photos</button></div>
+          </div>
+          <input type="file" id="hostPick" accept="image/*" multiple hidden>
+          <p class="msg" id="hostMsg" role="status"></p>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="tabpanel" id="tab-stats" hidden>
+        <div class="stats" id="statsBox"></div>
+        <p class="note" style="margin-top:12px">Counts start from when this version went live.</p>
+      </div>
+    </section>
+
+    <!-- Studio branding -->
+    <section id="brandingView" hidden>
+      <button class="link back" type="button" id="brandingBack">← All events</button>
+      <div class="head"><div><h1>Studio branding</h1><p>Shown to guests on every event as "Photos by", with a link to book you.</p></div></div>
+      <div class="card" style="max-width:720px">
+        <div class="row2b">
+          <div class="field"><label for="bName">Studio name</label><input id="bName" maxlength="80"></div>
+          <div class="field"><label for="bTagline">Short line (optional)</label><input id="bTagline" maxlength="140" placeholder="e.g. Wedding photography across Lagos"></div>
+          <div class="field"><label for="bLink">Website or booking link</label><input id="bLink" maxlength="300" inputmode="url" placeholder="e.g. studio.com/book"></div>
+          <div class="field"><label for="bInstagram">Instagram</label><input id="bInstagram" maxlength="60" placeholder="@studio"></div>
+          <div class="field"><label for="bContact">Email or phone (optional)</label><input id="bContact" maxlength="120"></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0 14px">
+          <div class="logo-prev" id="logoPrev">No logo</div>
+          <button class="btn ghost" type="button" id="logoBtn">Upload logo</button>
+          <button class="btn ghost" type="button" id="logoRemove" hidden>Remove logo</button>
+          <input type="file" id="logoPick" accept="image/png,image/jpeg,image/webp" hidden>
+        </div>
+        <button class="btn accent" type="button" id="brandSave">Save branding</button>
+        <p class="msg" id="brandMsg" role="status"></p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="lightbox" id="lightbox" hidden><img id="lightboxImg" alt=""></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<dialog id="eventDialog" aria-labelledby="edTitle">
+  <form id="eventForm" method="dialog" novalidate>
+    <h2 id="edTitle">New event</h2>
+    <div class="field"><label for="edName">Event name</label><input id="edName" maxlength="100" placeholder="e.g. Ada and Tobi's wedding" required></div>
+    <div class="row2">
+      <div class="field"><label for="edStart">First day</label><input id="edStart" type="date" required></div>
+      <div class="field"><label for="edEnd">Last day</label><input id="edEnd" type="date"></div>
+    </div>
+    <div class="field"><label for="edSlug">Guest link name (optional)</label><input id="edSlug" maxlength="40" placeholder="e.g. ada-and-tobi">
+      <div class="hint">Letters, numbers and dashes. We add a short code to keep it unique.</div></div>
+    <p class="msg err" id="edMsg" role="alert"></p>
+    <div class="actions">
+      <button class="btn ghost" type="button" id="edCancel">Cancel</button>
+      <button class="btn accent" type="submit" id="edSubmit">Create event</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  const cfg = window.PLATFORM_CONFIG || {};
+  const $ = (id) => document.getElementById(id);
+  const REFRESH_KEY = "ep-refresh";
+  const EMAIL_KEY = "ep-email";
+  const store = {
+    get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+    del: (k) => { try { localStorage.removeItem(k); } catch {} },
+  };
+
+  // ---------- Cognito, called directly (no SDK) ----------
+  async function cognito(action, body) {
+    const res = await fetch(`https://cognito-idp.${cfg.region}.amazonaws.com/`, {
+      method: "POST",
+      headers: { "content-type": "application/x-amz-json-1.1", "x-amz-target": `AWSCognitoIdentityProviderService.${action}` },
+      body: JSON.stringify({ ClientId: cfg.userPoolClientId, ...body }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const type = String(data.__type || "").split("#").pop();
+      const err = new Error(friendly(type, data.message));
+      err.type = type;
+      throw err;
+    }
+    return data;
+  }
+  function friendly(type, fallback) {
+    return ({
+      NotAuthorizedException: "Email or password is incorrect.",
+      UserNotFoundException: "Email or password is incorrect.",
+      UsernameExistsException: "An account with this email already exists. Sign in instead.",
+      InvalidPasswordException: "Password needs at least 10 characters, with a number and a lowercase letter.",
+      CodeMismatchException: "That code isn't right.",
+      ExpiredCodeException: "That code has expired. Send a new one.",
+      LimitExceededException: "Too many attempts. Wait a few minutes and try again.",
+      TooManyRequestsException: "Too many attempts. Wait a few minutes and try again.",
+      InvalidParameterException: fallback || "Check the details and try again.",
+    })[type] || fallback || "Something went wrong. Try again.";
+  }
+
+  let idToken = null, idTokenExp = 0;
+  function useAuthResult(r) {
+    idToken = r.IdToken;
+    idTokenExp = claims(idToken).exp * 1000;
+    if (r.RefreshToken) store.set(REFRESH_KEY, r.RefreshToken);
+  }
+  function claims(token) {
+    try { return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); } catch { return {}; }
+  }
+  async function signIn(email, password) {
+    const r = await cognito("InitiateAuth", { AuthFlow: "USER_PASSWORD_AUTH", AuthParameters: { USERNAME: email, PASSWORD: password } });
+    if (!r.AuthenticationResult) throw new Error("This account needs an extra step that the dev dashboard doesn't support yet.");
+    store.set(EMAIL_KEY, email);
+    useAuthResult(r.AuthenticationResult);
+  }
+  async function refresh() {
+    const rt = store.get(REFRESH_KEY);
+    if (!rt) return false;
+    try {
+      const r = await cognito("InitiateAuth", { AuthFlow: "REFRESH_TOKEN_AUTH", AuthParameters: { REFRESH_TOKEN: rt } });
+      useAuthResult(r.AuthenticationResult);
+      return true;
+    } catch { store.del(REFRESH_KEY); return false; }
+  }
+  async function token() {
+    if (idToken && Date.now() < idTokenExp - 60_000) return idToken;
+    if (await refresh()) return idToken;
+    throw Object.assign(new Error("Signed out"), { signedOut: true });
+  }
+
+  // ---------- Platform API ----------
+  async function api(path, opts = {}) {
+    const t = await token();
+    const res = await fetch(`${cfg.apiUrl}${path}`, { ...opts, headers: { "content-type": "application/json", authorization: `Bearer ${t}` } });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) { signOut(); throw new Error("Signed out"); }
+    if (!res.ok) throw new Error(data.error || data.message || `Request failed (${res.status})`);
+    return data;
+  }
+
+  // ---------- Auth screens ----------
+  const authForms = ["signInForm", "signUpForm", "confirmForm", "forgotForm"];
+  function showForm(id) {
+    authForms.forEach((f) => ($(f).hidden = f !== id));
+    document.querySelectorAll(".msg").forEach((m) => { m.textContent = ""; m.className = m.className.replace(/ (err|ok)/g, ""); });
+    const first = $(id).querySelector("input"); if (first) first.focus();
+  }
+  document.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => showForm(b.dataset.go)));
+  function say(id, text, kind = "err") { $(id).textContent = text; $(id).classList.remove("err", "ok"); if (text) $(id).classList.add(kind); }
+  async function busy(form, fn) {
+    const btn = form.querySelector("button[type=submit]");
+    btn.disabled = true;
+    try { await fn(); } finally { btn.disabled = false; }
+  }
+
+  $("signInForm").addEventListener("submit", (e) => { e.preventDefault(); busy(e.target, async () => {
+    const email = $("siEmail").value.trim(), pw = $("siPassword").value;
+    if (!email || !pw) return say("siMsg", "Enter your email and password.");
+    try { await signIn(email, pw); $("siPassword").value = ""; await enterApp(); }
+    catch (err) {
+      if (err.type === "UserNotConfirmedException") { pendingEmail = email; pendingPw = pw; await cognito("ResendConfirmationCode", { Username: email }).catch(() => {}); openConfirm(); }
+      else say("siMsg", err.message);
+    }
+  }); });
+
+  let pendingEmail = "", pendingPw = "";
+  function openConfirm() { $("cfEmailLabel").textContent = pendingEmail; showForm("confirmForm"); }
+
+  $("signUpForm").addEventListener("submit", (e) => { e.preventDefault(); busy(e.target, async () => {
+    const email = $("suEmail").value.trim(), pw = $("suPassword").value;
+    if (!email || !pw) return say("suMsg", "Enter an email and a password.");
+    try {
+      await cognito("SignUp", { Username: email, Password: pw, UserAttributes: [{ Name: "email", Value: email }] });
+      pendingEmail = email; pendingPw = pw; openConfirm();
+    } catch (err) { say("suMsg", err.message); }
+  }); });
+
+  $("confirmForm").addEventListener("submit", (e) => { e.preventDefault(); busy(e.target, async () => {
+    const code = $("cfCode").value.trim();
+    if (!code) return say("cfMsg", "Enter the code from the email.");
+    try {
+      await cognito("ConfirmSignUp", { Username: pendingEmail, ConfirmationCode: code });
+      if (pendingPw) { await signIn(pendingEmail, pendingPw); pendingPw = ""; await enterApp(); }
+      else { showForm("signInForm"); $("siEmail").value = pendingEmail; say("siMsg", "Verified. Sign in to continue.", "ok"); }
+    } catch (err) { say("cfMsg", err.message); }
+  }); });
+  $("resendBtn").addEventListener("click", async () => {
+    try { await cognito("ResendConfirmationCode", { Username: pendingEmail }); say("cfMsg", "New code sent.", "ok"); }
+    catch (err) { say("cfMsg", err.message); }
+  });
+
+  let resetStage = 1;
+  $("forgotForm").addEventListener("submit", (e) => { e.preventDefault(); busy(e.target, async () => {
+    const email = $("fgEmail").value.trim();
+    if (!email) return say("fgMsg", "Enter your email.");
+    try {
+      if (resetStage === 1) {
+        await cognito("ForgotPassword", { Username: email });
+        resetStage = 2; $("fgStep2").hidden = false; $("fgBtn").textContent = "Set new password";
+        say("fgMsg", "If that email has an account, a code is on its way.", "ok");
+      } else {
+        await cognito("ConfirmForgotPassword", { Username: email, ConfirmationCode: $("fgCode").value.trim(), Password: $("fgPassword").value });
+        resetStage = 1; $("fgStep2").hidden = true; $("fgBtn").textContent = "Send reset code";
+        showForm("signInForm"); $("siEmail").value = email; say("siMsg", "Password updated. Sign in with your new password.", "ok");
+      }
+    } catch (err) { say("fgMsg", err.message); }
+  }); });
+
+  function signOut() {
+    idToken = null; idTokenExp = 0; org = null;
+    store.del(REFRESH_KEY);
+    $("appView").hidden = true; $("authView").hidden = false;
+    showForm("signInForm");
+    $("siEmail").value = store.get(EMAIL_KEY) || "";
+  }
+  $("signOutBtn").addEventListener("click", signOut);
+
+  // ---------- App ----------
+  let org = null, events = [];
+
+  async function enterApp() {
+    $("authView").hidden = true; $("appView").hidden = false;
+    $("userLabel").textContent = claims(idToken).email || "";
+    const me = await api("/me");
+    if (!me.orgs.length) return showOnly("orgSetup");
+    org = me.orgs[0];
+    $("orgLabel").textContent = org.name;
+    await loadEvents();
+  }
+  function showOnly(id) { ["orgSetup", "eventsView", "eventView", "brandingView"].forEach((s) => ($(s).hidden = s !== id)); window.scrollTo(0, 0); }
+
+  $("orgForm").addEventListener("submit", (e) => { e.preventDefault(); busy(e.target, async () => {
+    const name = $("orgName").value.trim();
+    if (!name) return say("orgMsg", "Enter your studio name.");
+    try { org = await api("/orgs", { method: "POST", body: JSON.stringify({ name }) }); $("orgLabel").textContent = org.name; await loadEvents(); }
+    catch (err) { say("orgMsg", err.message); }
+  }); });
+
+  const fmt = (d) => new Date(d + "T12:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  const range = (e) => e.startDate === e.endDate ? fmt(e.startDate) : `${fmt(e.startDate)} to ${fmt(e.endDate)}`;
+  const isPast = (e) => new Date(e.endDate + "T23:59:59") < new Date();
+
+  async function loadEvents() {
+    showOnly("eventsView");
+    $("eventsList").innerHTML = "";
+    events = (await api(`/orgs/${org.id}/events`)).events;
+    const upcoming = events.filter((e) => !isPast(e)).length;
+    $("eventsSummary").textContent = events.length ? `${events.length} event${events.length === 1 ? "" : "s"}, ${upcoming} upcoming` : "";
+    if (!events.length) {
+      $("eventsList").innerHTML = '<div class="empty"><strong>No events yet</strong>Create your first event to get its guest link and codes.</div>';
+      return;
+    }
+    events.forEach((ev) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "event";
+      const name = document.createElement("span"); name.className = "name"; name.textContent = ev.name;
+      const pill = document.createElement("span"); pill.className = "pill" + (isPast(ev) ? " past" : ""); pill.textContent = isPast(ev) ? "Past" : "Upcoming";
+      const meta = document.createElement("span"); meta.className = "meta"; meta.textContent = `${range(ev)} · ${ev.slug}`;
+      b.append(name, pill, meta);
+      b.addEventListener("click", () => openEvent(ev));
+      $("eventsList").appendChild(b);
+    });
+  }
+
+  const siteBase = () => (cfg.guestBaseUrl || location.origin + location.pathname.replace(/[^/]*$/, "")).replace(/\/?$/, "/");
+  function guestLink(ev) { return `${siteBase()}guest.html?e=${ev.slug}`; }
+  function uploadLink(ev, key) { return `${siteBase()}upload.html?e=${ev.slug}#k=${encodeURIComponent(key)}`; }
+
+  let currentEvent = null;
+  function showSecrets(ev, secrets) {
+    const has = { Guest: !!secrets.guestCode, Upload: !!secrets.uploadKey };
+    $("rowGuest").hidden = $("rowGuestLink").hidden = !has.Guest;
+    $("rowUpload").hidden = $("rowUploadLink").hidden = !has.Upload;
+    if (has.Guest) { $("sGuest").textContent = secrets.guestCode; $("sGuestLink").textContent = `${guestLink(ev)}&code=${secrets.guestCode}`; }
+    if (has.Upload) { $("sUpload").textContent = secrets.uploadKey; $("sUploadLink").textContent = uploadLink(ev, secrets.uploadKey); }
+    $("secretBox").hidden = false;
+    $("secretBox").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  function openEvent(ev, secrets) {
+    currentEvent = ev;
+    say("newCodeMsg", "");
+    showOnly("eventView");
+    $("evName").textContent = ev.name;
+    $("evDates").textContent = range(ev);
+    selectTab("share");
+    $("qrCode").value = (secrets && secrets.guestCode) || "";
+    drawQr();
+    $("evLink").textContent = guestLink(ev);
+    $("evLink").href = guestLink(ev);
+    $("evStatus").textContent = ev.status === "active" ? "Active" : ev.status;
+    $("evDelete").textContent = fmt(ev.deleteAfter);
+    $("evId").textContent = ev.eventId;
+    $("secretBox").hidden = true;
+    if (secrets) showSecrets(ev, secrets);
+  }
+  async function newCode(kind) {
+    const label = kind === "upload" ? "photographer link" : "guest code";
+    if (!confirm(`Make a new ${label}? The current one stops working straight away.`)) return;
+    const btn = $(kind === "upload" ? "newUploadBtn" : "newGuestBtn");
+    btn.disabled = true;
+    try {
+      const r = await api(`/orgs/${org.id}/events/${currentEvent.eventId}/new-code`, { method: "POST", body: JSON.stringify({ kind }) });
+      ["sGuest", "sUpload", "sGuestLink", "sUploadLink"].forEach((id) => ($(id).textContent = ""));
+      showSecrets(currentEvent, r);
+      say("newCodeMsg", `New ${label} ready. Copy it from the box above.`, "ok");
+    } catch (err) { say("newCodeMsg", err.message); }
+    finally { btn.disabled = false; }
+  }
+  $("newUploadBtn").addEventListener("click", () => newCode("upload"));
+  $("newGuestBtn").addEventListener("click", () => newCode("guest"));
+  $("backBtn").addEventListener("click", () => { ["sGuest", "sUpload", "sGuestLink", "sUploadLink"].forEach((id) => ($(id).textContent = "")); loadEvents(); });
+
+  document.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText($(b.dataset.copy).textContent); b.textContent = "Copied"; setTimeout(() => (b.textContent = "Copy"), 1500); } catch {}
+  }));
+
+  // New event
+  const dlg = $("eventDialog");
+  $("newEventBtn").addEventListener("click", () => { $("eventForm").reset(); say("edMsg", ""); dlg.showModal(); $("edName").focus(); });
+  $("edCancel").addEventListener("click", () => dlg.close());
+  $("edStart").addEventListener("change", () => { if (!$("edEnd").value || $("edEnd").value < $("edStart").value) $("edEnd").value = $("edStart").value; });
+  $("eventForm").addEventListener("submit", (e) => { e.preventDefault(); busy(e.target, async () => {
+    const body = { name: $("edName").value.trim(), startDate: $("edStart").value, endDate: $("edEnd").value || $("edStart").value };
+    if ($("edSlug").value.trim()) body.slug = $("edSlug").value.trim();
+    if (!body.name || !body.startDate) return say("edMsg", "Add a name and the first day.");
+    try {
+      const ev = await api(`/orgs/${org.id}/events`, { method: "POST", body: JSON.stringify(body) });
+      dlg.close();
+      openEvent(ev, { guestCode: ev.guestCode, uploadKey: ev.uploadKey });
+    } catch (err) { say("edMsg", err.message); }
+  }); });
+
+  // ---------- Event tabs ----------
+  const evApi = (action, opts) => api(`/orgs/${org.id}/events/${currentEvent.eventId}/${action}`, opts);
+  const post = (body) => ({ method: "POST", body: JSON.stringify(body) });
+  let toastTimer;
+  function toast(msg) { $("toast").textContent = msg; $("toast").hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => ($("toast").hidden = true), 3000); }
+
+  function selectTab(name) {
+    document.querySelectorAll("#evTabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+    document.querySelectorAll(".tabpanel").forEach((p) => (p.hidden = p.id !== `tab-${name}`));
+    if (name === "photos") loadPhotos();
+    if (name === "rules") loadRules();
+    if (name === "hosts") loadHosts();
+    if (name === "stats") loadStats();
+  }
+  document.querySelectorAll("#evTabs button").forEach((b) => b.addEventListener("click", () => selectTab(b.dataset.tab)));
+
+  // Share: QR code
+  function qrTarget() {
+    const code = $("qrCode").value.trim();
+    return code ? `${guestLink(currentEvent)}&code=${encodeURIComponent(code)}` : guestLink(currentEvent);
+  }
+  function drawQr() {
+    const qr = qrcode(0, "M");
+    qr.addData(qrTarget());
+    qr.make();
+    $("qrBox").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+  }
+  $("qrCode").addEventListener("input", drawQr);
+  $("qrDownload").addEventListener("click", () => {
+    const qr = qrcode(0, "M");
+    qr.addData(qrTarget());
+    qr.make();
+    const n = qr.getModuleCount(), cell = 16, margin = 4 * cell, size = n * cell + margin * 2;
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const g = c.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, size, size); g.fillStyle = "#000";
+    for (let r = 0; r < n; r++) for (let col = 0; col < n; col++) if (qr.isDark(r, col)) g.fillRect(margin + col * cell, margin + r * cell, cell, cell);
+    const a = document.createElement("a");
+    a.href = c.toDataURL("image/png");
+    a.download = `${currentEvent.slug}-guest-qr.png`;
+    a.click();
+  });
+
+  // Photos
+  let photos = [], photoFilter = "all", pollTimer;
+  const isPending = (p) => /^Re-sorting/.test(p.reason);
+  const isStuck = (p) => /^AI sorting unavailable/.test(p.reason);
+  const needsLook = (p) => p.source === "ai" && !isPending(p) && (p.confidence < 0.9 || isStuck(p) || /not sure/i.test(p.reason));
+  const FILTERS = [
+    ["look", "Worth a look", needsLook], ["ai", "Sorted by AI", (p) => p.source === "ai"],
+    ["public", "Public", (p) => p.visibility === "public"], ["private", "Private", (p) => p.visibility === "private"], ["all", "All", () => true],
+  ];
+  function sourceLabel(p) {
+    if (isPending(p)) return "Re-sorting with AI…";
+    if (isStuck(p)) return "AI couldn't sort this";
+    if (p.source === "ai") return `AI, ${Math.round(p.confidence * 100)}% sure`;
+    if (p.source === "photographer") return "Photographer's folder";
+    if (p.source === "hosts") return "Hosts recognised";
+    if (p.source === "you") return "Changed by you";
+    return "Uploaded";
+  }
+  async function loadPhotos() {
+    try { photos = (await evApi("photos")).photos; renderPhotos(); } catch (err) { $("photosSummary").textContent = err.message; }
+  }
+  function renderPhotos() {
+    const pub = photos.filter((p) => p.visibility === "public").length;
+    $("photosSummary").textContent = photos.length ? `${photos.length} photos: ${pub} shared with everyone, ${photos.length - pub} private.` : "";
+    const stuck = photos.filter(isStuck).length;
+    $("resortAllBtn").hidden = !stuck;
+    $("resortAllBtn").textContent = `Re-sort ${stuck} with AI`;
+    $("photoFilters").innerHTML = "";
+    FILTERS.forEach(([key, label, fn]) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.setAttribute("aria-pressed", String(key === photoFilter));
+      b.innerHTML = `${label}<span class="n">${photos.filter(fn).length}</span>`;
+      b.addEventListener("click", () => { photoFilter = key; renderPhotos(); });
+      $("photoFilters").appendChild(b);
+    });
+    const shown = photos.filter(FILTERS.find(([k]) => k === photoFilter)[2]);
+    const grid = $("photoGrid");
+    grid.innerHTML = "";
+    if (!shown.length) {
+      grid.innerHTML = `<p class="empty-small">${photos.length ? "Nothing here." : "No photos yet. Send the photographer link to start uploading."}</p>`;
+      return;
+    }
+    shown.forEach((p) => grid.appendChild(photoCard(p)));
+  }
+  function photoCard(p) {
+    const el = document.createElement("article");
+    el.className = "pcard" + (needsLook(p) ? " look" : "");
+    const imgBtn = document.createElement("button");
+    imgBtn.type = "button"; imgBtn.className = "img"; imgBtn.setAttribute("aria-label", "View larger");
+    const img = document.createElement("img"); img.src = p.thumb; img.loading = "lazy"; img.alt = "";
+    imgBtn.appendChild(img);
+    imgBtn.addEventListener("click", () => { $("lightboxImg").src = p.web; $("lightbox").hidden = false; });
+    const body = document.createElement("div"); body.className = "body";
+    const badge = document.createElement("span"); badge.className = `badge ${p.visibility}`; badge.textContent = p.visibility === "public" ? "Everyone" : "Private";
+    const meta = document.createElement("div"); meta.className = "pmeta"; meta.textContent = [sourceLabel(p), p.uploader].filter(Boolean).join(" · ");
+    body.append(badge, meta);
+    if (p.reason) { const r = document.createElement("div"); r.className = "preason"; r.textContent = p.reason; r.title = p.reason; body.appendChild(r); }
+    const tools = document.createElement("div"); tools.className = "ptools";
+    const again = document.createElement("button"); again.type = "button"; again.className = "link"; again.textContent = "Ask AI again";
+    again.addEventListener("click", () => resort([p.id]));
+    const del = document.createElement("button"); del.type = "button"; del.className = "link danger"; del.textContent = "Delete";
+    del.addEventListener("click", () => removePhoto(p, el));
+    tools.append(again, del);
+    const flip = document.createElement("button"); flip.type = "button"; flip.className = "btn ghost flip";
+    const target = p.visibility === "public" ? "private" : "public";
+    flip.textContent = target === "public" ? "Share with everyone" : "Make private";
+    flip.addEventListener("click", () => movePhoto(p, target, el));
+    if (isPending(p)) { flip.disabled = true; again.disabled = true; }
+    body.append(tools, flip);
+    el.append(imgBtn, body);
+    return el;
+  }
+  async function movePhoto(p, target, el) {
+    el.classList.add("busy");
+    try { await evApi("visibility", post({ id: p.id, visibility: target })); toast(target === "public" ? "Now shared with every guest" : "Now private: only people in it see it"); await loadPhotos(); }
+    catch (err) { el.classList.remove("busy"); toast(err.message); }
+  }
+  async function removePhoto(p, el) {
+    if (!confirm("Delete this photo for everyone, including the original? This can't be undone.")) return;
+    el.classList.add("busy");
+    try { await evApi("delete-photos", post({ ids: [p.id] })); photos = photos.filter((x) => x.id !== p.id); renderPhotos(); toast("Photo deleted"); }
+    catch (err) { el.classList.remove("busy"); toast(err.message); }
+  }
+  async function resort(ids) {
+    try {
+      for (let i = 0; i < ids.length; i += 100) await evApi("resort", post({ ids: ids.slice(i, i + 100) }));
+      toast(`Re-sorting ${ids.length} photo${ids.length === 1 ? "" : "s"}…`);
+      await loadPhotos(); poll(Date.now());
+    } catch (err) { toast(err.message); }
+  }
+  function poll(started) {
+    clearTimeout(pollTimer);
+    if (!photos.some(isPending) || Date.now() - started > 5 * 60 * 1000 || $("tab-photos").hidden) return;
+    pollTimer = setTimeout(() => loadPhotos().then(() => poll(started)), 5000);
+  }
+  $("resortAllBtn").addEventListener("click", () => {
+    const ids = photos.filter(isStuck).map((p) => p.id);
+    if (ids.length && confirm(`Ask the AI to sort ${ids.length} photo${ids.length === 1 ? "" : "s"} it couldn't sort before?`)) resort(ids);
+  });
+  $("photosRefresh").addEventListener("click", loadPhotos);
+  $("lightbox").addEventListener("click", () => { $("lightbox").hidden = true; $("lightboxImg").src = ""; });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("lightbox").hidden) $("lightbox").click(); });
+
+  $("delConfirm").addEventListener("input", () => ($("delAllBtn").disabled = $("delConfirm").value.trim().toUpperCase() !== "DELETE ALL PHOTOS"));
+  $("delAllBtn").addEventListener("click", async () => {
+    if (!confirm(`Delete every photo in "${currentEvent.name}"? This can't be undone.`)) return;
+    $("delAllBtn").disabled = true;
+    say("delMsg", "Deleting… this can take a minute for thousands of photos.", "ok");
+    try {
+      await evApi("delete-all", post({ confirm: $("delConfirm").value, includeHosts: $("delHosts").checked }));
+      const started = Date.now();
+      const check = async () => {
+        await loadPhotos();
+        if (!photos.length || Date.now() - started > 3 * 60 * 1000) {
+          say("delMsg", photos.length ? "Still deleting in the background. Refresh in a few minutes." : "Everything has been deleted.", "ok");
+          $("delConfirm").value = "";
+          return;
+        }
+        setTimeout(check, 4000);
+      };
+      setTimeout(check, 3000);
+    } catch (err) { say("delMsg", err.message); $("delAllBtn").disabled = false; }
+  });
+
+  // Rules
+  async function loadRules() {
+    try { const r = await evApi("rules"); $("rulesText").value = r.rules; say("rulesMsg", r.isDefault ? "Using the default rules" : "", "ok"); }
+    catch (err) { say("rulesMsg", err.message); }
+  }
+  async function saveRules(text) {
+    $("rulesSave").disabled = true;
+    try { const r = await evApi("rules", post({ rules: text })); $("rulesText").value = r.rules; say("rulesMsg", r.isDefault ? "Reset to the default rules" : "Saved. New uploads use these rules.", "ok"); }
+    catch (err) { say("rulesMsg", err.message); } finally { $("rulesSave").disabled = false; }
+  }
+  $("rulesSave").addEventListener("click", () => saveRules($("rulesText").value));
+  $("rulesReset").addEventListener("click", () => { if (confirm("Replace these rules with the default ones?")) saveRules(""); });
+
+  // Hosts
+  function renderHosts(hosts) {
+    const list = $("hostList");
+    list.innerHTML = "";
+    if (!hosts.length) { list.innerHTML = '<p class="note" style="margin:8px 0">No hosts added yet.</p>'; return; }
+    hosts.forEach((h) => {
+      const row = document.createElement("div"); row.className = "hostrow";
+      const label = document.createElement("div");
+      const strong = document.createElement("strong"); strong.textContent = h.name;
+      const n = document.createElement("span"); n.className = "note"; n.textContent = `  ${h.photos} photo${h.photos === 1 ? "" : "s"}`;
+      label.append(strong, n);
+      const btns = document.createElement("div"); btns.style.display = "flex"; btns.style.gap = "8px";
+      const add = document.createElement("button"); add.type = "button"; add.className = "btn ghost"; add.textContent = "Add photos";
+      add.addEventListener("click", () => { $("hostName").value = h.name; $("hostPick").click(); });
+      const clear = document.createElement("button"); clear.type = "button"; clear.className = "link danger"; clear.textContent = "Remove";
+      clear.addEventListener("click", async () => {
+        if (!confirm(`Remove all reference photos of ${h.name}?`)) return;
+        try { renderHosts((await evApi("hosts-clear", post({ name: h.name }))).hosts); } catch (err) { say("hostMsg", err.message); }
+      });
+      btns.append(add, clear);
+      row.append(label, btns);
+      list.appendChild(row);
+    });
+  }
+  async function loadHosts() { try { renderHosts((await evApi("hosts")).hosts); } catch (err) { say("hostMsg", err.message); } }
+  function shrink(file, max = 1600) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(img.src);
+        resolve(c.toDataURL("image/jpeg", 0.9));
+      };
+      img.onerror = () => reject(new Error("Couldn't read that image"));
+      img.src = URL.createObjectURL(file);
+    });
+  }
+  $("hostAddBtn").addEventListener("click", () => {
+    if (!$("hostName").value.trim()) return say("hostMsg", "Type a name first, for example bride.");
+    $("hostPick").click();
+  });
+  $("hostPick").addEventListener("change", async () => {
+    const files = [...$("hostPick").files];
+    $("hostPick").value = "";
+    const name = $("hostName").value.trim();
+    let ok = 0; const failed = [];
+    for (const [i, file] of files.entries()) {
+      say("hostMsg", `Adding ${i + 1} of ${files.length}…`, "ok");
+      try { renderHosts((await evApi("hosts", post({ name, image: await shrink(file) }))).hosts); ok++; }
+      catch (err) { failed.push(`${file.name}: ${err.message}`); }
+    }
+    say("hostMsg", `${ok} added.` + (failed.length ? ` ${failed.join(" ")}` : ""), failed.length ? "err" : "ok");
+  });
+
+  // Stats
+  async function loadStats() {
+    try {
+      const s = await evApi("stats");
+      $("statsBox").innerHTML = "";
+      [[s.selfies, "selfies taken"], [s.guestsFound, "guests found in photos"], [s.downloads, "downloads"],
+       [s.photoViews, "photos opened"], [s.publicPhotos, "shared photos"], [s.privatePhotos, "private photos"]].forEach(([n, label]) => {
+        const d = document.createElement("div"); d.className = "stat";
+        const b = document.createElement("b"); b.textContent = n;
+        const sp = document.createElement("span"); sp.textContent = label;
+        d.append(b, sp); $("statsBox").appendChild(d);
+      });
+    } catch (err) { $("statsBox").textContent = err.message; }
+  }
+
+  // ---------- Studio branding ----------
+  const BRAND = { name: "bName", tagline: "bTagline", link: "bLink", instagram: "bInstagram", contact: "bContact" };
+  function showBranding(b) {
+    Object.entries(BRAND).forEach(([k, id]) => ($(id).value = b[k] || ""));
+    $("logoPrev").innerHTML = "";
+    if (b.logoUrl) { const i = document.createElement("img"); i.src = b.logoUrl; i.alt = "Logo"; $("logoPrev").appendChild(i); }
+    else $("logoPrev").textContent = "No logo";
+    $("logoRemove").hidden = !b.logoUrl;
+    $("logoBtn").textContent = b.logoUrl ? "Replace logo" : "Upload logo";
+  }
+  $("brandingNavBtn").addEventListener("click", async () => {
+    showOnly("brandingView"); say("brandMsg", "");
+    try { showBranding(await api(`/orgs/${org.id}/branding`)); } catch (err) { say("brandMsg", err.message); }
+  });
+  $("brandingBack").addEventListener("click", loadEvents);
+  $("brandSave").addEventListener("click", async () => {
+    const body = {}; Object.entries(BRAND).forEach(([k, id]) => (body[k] = $(id).value.trim()));
+    $("brandSave").disabled = true;
+    try { showBranding(await api(`/orgs/${org.id}/branding`, { method: "PUT", body: JSON.stringify(body) })); say("brandMsg", "Saved. Guests see it on every event.", "ok"); }
+    catch (err) { say("brandMsg", err.message); } finally { $("brandSave").disabled = false; }
+  });
+  $("logoBtn").addEventListener("click", () => $("logoPick").click());
+  $("logoPick").addEventListener("change", async () => {
+    const file = $("logoPick").files[0]; $("logoPick").value = "";
+    if (!file) return;
+    if (file.size > 2_000_000) return say("brandMsg", "Keep the logo under 2 MB.");
+    const image = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+    try { showBranding(await api(`/orgs/${org.id}/branding-logo`, post({ image }))); say("brandMsg", "Logo saved.", "ok"); }
+    catch (err) { say("brandMsg", err.message); }
+  });
+  $("logoRemove").addEventListener("click", async () => {
+    if (!confirm("Remove the logo?")) return;
+    try { showBranding(await api(`/orgs/${org.id}/branding-logo`, post({ image: "" }))); } catch (err) { say("brandMsg", err.message); }
+  });
+
+  // ---------- Start ----------
+  (async () => {
+    if (!cfg.userPoolClientId || cfg.userPoolClientId === "REPLACE_ME") {
+      $("authView").hidden = false;
+      say("siMsg", "Fill in config.js with the stack outputs first.");
+      return;
+    }
+    if (await refresh()) { try { await enterApp(); return; } catch {} }
+    signOut();
+    if (location.hash === "#signup") showForm("signUpForm");
+  })();
+})();
+</script>
+</body>
+</html>

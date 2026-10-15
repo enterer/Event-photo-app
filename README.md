@@ -4,8 +4,9 @@ Multi-event version of the wedding selfie photo app, for photographers and event
 
 **This repo never deploys to eu-west-1.** That region runs the wedding (`wedding-photos` stack, separate repo). The template refuses eu-west-1, and `scripts/deploy.sh` refuses the wedding region and stack name.
 
-## Status: week 3
+## Status: week 3 + landing page
 
+- Landing page `index.html` (the first page visitors see): what the product does, privacy comparison, photographer features, pricing (placeholder prices), and Sign in / Get started buttons into the dashboard
 - Sign-in, studios, events (dashboard), with studio branding (name, logo, booking link, Instagram) shown to guests as "Photos by"
 - Event page tabs: **Share** (QR code with optional guest code, new photographer link or guest code), **Photos** (review queue: share or make private, ask AI again, delete one, re-sort failed ones, delete all), **Sorting rules**, **Hosts** (reference faces; photos with every host are shared automatically), **Stats** (selfies, guests found, downloads, views, photo counts)
 - Guest page `guest.html?e=<slug>` and photographer page `upload.html?e=<slug>#k=<upload key>`
@@ -24,7 +25,7 @@ Settings (region `us-east-1`, stack `eventphotos-dev`, tags) are in `samconfig.t
 
 ## Dev dashboard
 
-`frontend/dashboard/` holds the photographer dashboard (`index.html`), the guest page (`guest.html`) and the photographer upload page (`upload.html`), all sharing `config.js`. It talks to Cognito directly, with no extra libraries.
+`frontend/dashboard/` holds the landing page (`index.html`), the photographer dashboard (`app.html`; `app.html#signup` opens account creation), the guest page (`guest.html`) and the photographer upload page (`upload.html`), all sharing `config.js`. It talks to Cognito directly, with no extra libraries.
 
 1. Fill in `frontend/dashboard/config.js` from the stack outputs (`ApiUrl`, `UserPoolClientId`).
 2. Host it with Amplify (us-east-1): new app → GitHub → `Event-photo-app`, branch `main`, not a monorepo; `amplify.yml` publishes `frontend/dashboard`.

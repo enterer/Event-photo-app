@@ -3,496 +3,528 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>EventPhotos · Private photo delivery for weddings and events</title>
-<meta name="description" content="Guests take a selfie and get the shared moments plus every photo they're in. AI decides what everyone sees and what stays with the people in it.">
+<title>EventPhotos · Private photo delivery for events</title>
+<meta name="description" content="Guests take a selfie and get the shared moments plus every photo they're in. AI decides, photo by photo, what everyone sees and what stays with the people in it.">
+<meta name="theme-color" content="#160e1b">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --paper: #f7f8fa; --white: #ffffff; --ink: #121a2b; --muted: #5d6577; --line: #dfe3ea;
-    --navy: #0f1a2e; --navy-2: #1b2842; --accent: #c8246c; --accent-soft: #fbe7f0; --gold: #e0a526;
-    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-    --body: "Figtree", "Segoe UI", system-ui, sans-serif;
+    --night: #160e1b; --night-2: #1c1322; --raised: #21172a; --ivory: #f1e9df; --smoke: #9a8f9f;
+    --hair: rgba(241, 233, 223, .14); --champagne: #cdb487; --rose: #c46c86;
+    --serif: "Bodoni Moda", "Didot", "Bodoni 72", Georgia, serif;
+    --sans: "Jost", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --gutter: clamp(20px, 5vw, 72px);
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
-  html, body { margin: 0; background: var(--paper); color: var(--ink); }
-  body { font: 400 17px/1.6 var(--body); }
+  html, body { margin: 0; background: var(--night); color: var(--ivory); }
+  body { font: 300 18px/1.65 var(--sans); -webkit-font-smoothing: antialiased; }
   a { color: inherit; }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+  :focus-visible { outline: 1px solid var(--champagne); outline-offset: 4px; }
+  [hidden] { display: none !important; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 var(--gutter); }
+
+  /* Film grain over everything: a quiet, expensive texture */
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50; opacity: .07; mix-blend-mode: overlay;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Buttons and links */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 15px 28px; border-radius: 999px; font: 400 15px/1 var(--sans); letter-spacing: .02em; text-decoration: none; cursor: pointer; border: 1px solid var(--ivory); transition: background .25s, color .25s, border-color .25s; white-space: nowrap; }
+  .btn-solid { background: var(--ivory); color: var(--night); }
+  .btn-solid:hover { background: var(--champagne); border-color: var(--champagne); }
+  .btn-line { background: transparent; color: var(--ivory); border-color: var(--hair); }
+  .btn-line:hover { border-color: var(--ivory); }
 
   /* Nav */
-  .nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; }
-  .logo { font: 800 22px/1 var(--display); letter-spacing: -.02em; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
-  .logo-mark { width: 26px; height: 26px; border-radius: 8px; background: var(--navy); position: relative; flex: none; }
-  .logo-mark::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; border: 2.5px solid var(--accent); }
-  .nav-links { display: flex; align-items: center; gap: 22px; font-weight: 500; font-size: 15.5px; }
-  .nav-links a { text-decoration: none; color: var(--muted); }
-  .nav-links a:hover { color: var(--ink); }
-  .btn { display: inline-flex; align-items: center; justify-content: center; padding: 12px 20px; border-radius: 10px; font: 600 15.5px/1 var(--body); text-decoration: none; border: 1.5px solid var(--ink); cursor: pointer; white-space: nowrap; }
-  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .btn-primary:hover { background: #ad1d5c; border-color: #ad1d5c; }
-  .btn-dark { background: var(--ink); color: #fff; }
-  .btn-ghost { background: transparent; color: var(--ink); border-color: var(--line); }
-  .btn-ghost:hover { border-color: var(--ink); }
-  .nav .btn { padding: 10px 16px; }
+  .nav { position: absolute; inset: 0 0 auto; z-index: 10; }
+  .nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-top: 26px; padding-bottom: 26px; }
+  .wordmark { font: 400 24px/1 var(--serif); letter-spacing: -.01em; text-decoration: none; }
+  .wordmark i { font-style: italic; color: var(--champagne); }
+  .nav-links { display: flex; align-items: center; gap: 34px; font-size: 15px; }
+  .nav-links a:not(.btn) { text-decoration: none; color: var(--smoke); transition: color .2s; }
+  .nav-links a:not(.btn):hover { color: var(--ivory); }
+  .nav .btn { padding: 11px 20px; }
 
-  /* Hero */
-  .hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; padding: 56px 0 72px; }
-  .hero h1 { font: 800 clamp(40px, 6vw, 68px)/1.02 var(--display); letter-spacing: -.035em; margin: 0 0 20px; }
-  .hero h1 .line2 { display: block; color: var(--muted); }
-  .hero p.lede { font-size: 19.5px; color: var(--muted); max-width: 34em; margin: 0 0 30px; }
-  .hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-  .hero-note { margin: 16px 0 0; font-size: 14.5px; color: var(--muted); }
+  /* Hero: the lens */
+  .hero { position: relative; min-height: max(720px, 100svh); overflow: hidden; display: grid; align-items: end; isolation: isolate; }
+  .wall { position: absolute; inset: -4% -2% -4% 30%; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; transform: rotate(-4deg); z-index: -2; }
+  .wall .ph { aspect-ratio: 4 / 5; border-radius: 4px; position: relative; overflow: hidden; }
+  .wall .ph svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .wall.soft { filter: blur(22px) saturate(.75) brightness(.55); }
+  .lens-clip { position: absolute; inset: 0; z-index: -2; clip-path: ellipse(var(--rx, 150px) var(--ry, 200px) at var(--x, 70%) var(--y, 45%)); }
+  .lens-clip .wall { z-index: auto; }
+  .lens { position: absolute; left: var(--x, 70%); top: var(--y, 45%); width: calc(var(--rx, 150px) * 2); height: calc(var(--ry, 200px) * 2); transform: translate(-50%, -50%); border-radius: 50%; border: 1px solid var(--champagne); z-index: -1; pointer-events: none; }
+  .lens::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; border: 1px solid rgba(205, 180, 135, .45); }
+  .lens-label { position: absolute; left: 50%; bottom: -34px; transform: translateX(-50%); font-size: 13px; color: var(--champagne); white-space: nowrap; letter-spacing: .02em; }
+  .hero-fade { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(90deg, var(--night) 0%, rgba(22,14,27,.92) 30%, rgba(22,14,27,.35) 56%, rgba(22,14,27,0) 72%), linear-gradient(0deg, var(--night) 0%, rgba(22,14,27,0) 30%); }
+  .hero > .wrap { width: 100%; }
+  .hero-copy { padding-bottom: clamp(56px, 10vh, 120px); padding-top: 140px; max-width: 760px; }
+  .hero h1 { font: 400 clamp(46px, 7.4vw, 108px)/.98 var(--serif); letter-spacing: -.035em; margin: 0 0 28px; }
+  .hero h1 span { display: block; font-style: italic; color: var(--smoke); }
+  .hero .lede { font-size: clamp(17px, 1.5vw, 20px); color: var(--smoke); max-width: 30em; margin: 0 0 40px; }
+  .ctas { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .hero-note { margin: 26px 0 0; font-size: 14px; color: var(--smoke); }
 
-  /* Phone demo: the product's core idea, shown */
-  .phone { justify-self: center; width: min(340px, 100%); background: var(--navy); border-radius: 38px; padding: 14px; box-shadow: 0 30px 60px -30px rgba(15, 26, 46, .5); }
-  .screen { background: var(--white); border-radius: 26px; padding: 18px 14px 16px; overflow: hidden; }
-  .screen-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-  .selfie { width: 42px; height: 42px; border-radius: 50%; background: radial-gradient(circle at 50% 38%, #8a5a44 0 30%, transparent 31%), radial-gradient(circle at 50% 100%, #8a5a44 0 45%, transparent 46%), #f1d8c6; border: 2.5px solid var(--accent); flex: none; position: relative; }
-  .selfie::after { content: ""; position: absolute; inset: -7px; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; animation: ping 9s infinite; }
-  .screen-title { font: 700 15px/1.2 var(--display); }
-  .screen-sub { font-size: 12.5px; color: var(--muted); }
-  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  .tile { aspect-ratio: 1; border-radius: 8px; position: relative; overflow: hidden; }
-  .tile svg { width: 100%; height: 100%; display: block; }
-  .tile .veil { position: absolute; inset: 0; background: rgba(240, 242, 246, .86); backdrop-filter: blur(6px); display: grid; place-items: center; }
-  .tile .veil svg { width: 30%; height: 30%; }
-  .tile.mine .veil { animation: unlock 9s infinite; }
-  .tile.mine::after { content: ""; position: absolute; inset: 0; border-radius: 8px; box-shadow: inset 0 0 0 3px var(--accent); opacity: 0; animation: ring 9s infinite; }
-  .legend { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; font-size: 11.5px; color: var(--muted); }
-  .legend span { display: inline-flex; align-items: center; gap: 5px; }
-  .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
-  .caption { text-align: center; font-size: 13.5px; color: var(--muted); margin: 14px 0 0; }
-  @keyframes unlock { 0%, 30% { opacity: 1; } 40%, 88% { opacity: 0; } 96%, 100% { opacity: 1; } }
-  @keyframes ring { 0%, 34% { opacity: 0; } 42%, 86% { opacity: 1; } 94%, 100% { opacity: 0; } }
-  @keyframes ping { 0%, 14% { opacity: 0; transform: scale(.9); } 20% { opacity: .9; } 32% { opacity: 0; transform: scale(1.35); } 100% { opacity: 0; } }
-  @media (prefers-reduced-motion: reduce) {
-    .feed i.new, .toast-demo, .live-badge i { animation: none; }
-    .tile.mine .veil { animation: none; opacity: 0; }
-    .tile.mine::after { animation: none; opacity: 1; }
-    .selfie::after { animation: none; }
-  }
+  /* Statement */
+  .statement { padding: clamp(96px, 16vw, 200px) 0; }
+  .statement .big { font: 400 clamp(30px, 4.4vw, 62px)/1.12 var(--serif); letter-spacing: -.025em; margin: 0; max-width: 17em; }
+  .statement .big em { color: var(--champagne); }
+  .statement .sub { color: var(--smoke); max-width: 32em; margin: 32px 0 0; }
 
-  /* Sections */
-  section.band { padding: 80px 0; }
-  section.band.alt { background: var(--white); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-  .kicker { font: 600 15px/1.2 var(--body); color: var(--accent); margin: 0 0 10px; }
-  h2.title { font: 800 clamp(30px, 4.2vw, 44px)/1.08 var(--display); letter-spacing: -.03em; margin: 0 0 16px; max-width: 18em; }
-  p.intro { color: var(--muted); font-size: 18.5px; max-width: 38em; margin: 0 0 40px; }
+  /* Section headings */
+  .sec { padding: clamp(80px, 11vw, 150px) 0; }
+  .sec-head { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: end; margin-bottom: clamp(48px, 7vw, 88px); }
+  .sec-head h2 { font: 400 clamp(36px, 5vw, 72px)/1.02 var(--serif); letter-spacing: -.03em; margin: 0; }
+  .sec-head p { color: var(--smoke); margin: 0; max-width: 30em; justify-self: end; }
 
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; counter-reset: s; list-style: none; margin: 0; padding: 0; }
-  .steps li { counter-increment: s; background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 26px; }
-  .steps li::before { content: counter(s); display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--navy); color: #fff; font: 700 17px/1 var(--display); margin-bottom: 16px; }
-  .steps h3, .feature h3 { font: 700 21px/1.25 var(--display); letter-spacing: -.01em; margin: 0 0 8px; }
-  .steps p, .feature p { margin: 0; color: var(--muted); font-size: 16px; }
+  /* The five */
+  .five { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hair); }
+  .five li { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 24px 56px; padding: 40px 0; border-bottom: 1px solid var(--hair); transition: opacity .35s; }
+  .five:hover li:not(:hover) { opacity: .38; }
+  .five h3 { font: 400 clamp(28px, 3.3vw, 46px)/1.08 var(--serif); letter-spacing: -.025em; margin: 0; }
+  .five p { margin: 0; color: var(--smoke); }
+  .five p + p { margin-top: 14px; }
+  .five .aside { color: var(--champagne); font-size: 15.5px; }
 
   /* Who sees what */
-  .compare { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .opt { border: 1px solid var(--line); border-radius: 16px; padding: 24px; background: var(--white); }
-  .opt h3 { font: 700 19px/1.25 var(--display); margin: 0 0 6px; }
-  .opt p { margin: 0 0 16px; color: var(--muted); font-size: 15.5px; }
-  .opt .verdict { font-weight: 600; font-size: 15px; }
-  .opt.us { border: 2px solid var(--accent); background: var(--accent-soft); }
-  .opt.us .verdict { color: var(--accent); }
-  .mini { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 16px; }
-  .mini i { aspect-ratio: 1; border-radius: 5px; display: block; }
-  .m-open { background: #c9d2e3; }
-  .m-lock { background: repeating-linear-gradient(45deg, #eef0f4 0 5px, #e2e6ed 5px 10px); }
-  .m-mine { background: var(--accent); }
-
-  .privacy { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; margin-top: 56px; }
-  .checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
-  .checks li { display: grid; grid-template-columns: 26px 1fr; gap: 12px; font-size: 16.5px; }
-  .checks li::before { content: ""; width: 22px; height: 22px; border-radius: 50%; background: var(--navy) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center/14px no-repeat; margin-top: 2px; }
-  .checks strong { display: block; }
-  .checks span { color: var(--muted); font-size: 15.5px; }
-  .quote { background: var(--navy); color: #e8ebf2; border-radius: 18px; padding: 30px; }
-  .quote p { font: 500 22px/1.4 var(--display); letter-spacing: -.01em; margin: 0 0 16px; color: #fff; }
-  .quote small { color: #a9b3c7; font-size: 14.5px; }
-
-  /* Photographers */
-  .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px 40px; }
-  .feature { padding: 22px 0; border-top: 1px solid var(--line); }
-  .feature h3 { display: flex; align-items: center; gap: 10px; }
-  .feature h3::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--gold); flex: none; }
-
-  /* Pricing */
-  .plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .plan { background: var(--white); border: 1px solid var(--line); border-radius: 18px; padding: 28px; display: flex; flex-direction: column; }
-  .plan.featured { border: 2px solid var(--ink); }
-  .plan h3 { font: 700 20px/1.2 var(--display); margin: 0 0 4px; }
-  .plan .for { color: var(--muted); font-size: 15px; margin: 0 0 18px; }
-  .price { font: 800 40px/1 var(--display); letter-spacing: -.03em; margin: 0 0 4px; }
-  .price small { font: 500 15px/1 var(--body); color: var(--muted); letter-spacing: 0; }
-  .plan ul { list-style: none; padding: 0; margin: 18px 0 24px; display: grid; gap: 8px; font-size: 15.5px; }
-  .plan li { padding-left: 20px; position: relative; }
-  .plan li::before { content: ""; position: absolute; left: 0; top: .55em; width: 8px; height: 8px; border-radius: 2px; background: var(--accent); }
-  .plan .btn { margin-top: auto; }
-  .offer { margin-top: 20px; padding: 16px 20px; border-radius: 12px; background: var(--accent-soft); color: var(--ink); font-size: 16px; }
-
-  /* Why us: the five advantages */
-  .adv-list { display: grid; gap: 18px; counter-reset: a; }
-  .adv { counter-increment: a; display: grid; grid-template-columns: 64px 1fr; gap: 6px 22px; padding: 30px 0; border-top: 1px solid var(--line); }
-  .adv::before { content: "0" counter(a); font: 800 34px/1 var(--display); letter-spacing: -.03em; color: var(--accent); grid-row: span 2; }
-  .adv h3 { font: 700 clamp(22px, 2.6vw, 28px)/1.2 var(--display); letter-spacing: -.02em; margin: 0; }
-  .adv > div > p { margin: 8px 0 0; color: var(--muted); max-width: 46em; }
-  .adv .vs a { color: var(--accent); font-weight: 600; text-decoration: none; }
-  .adv .vs { margin-top: 12px; font-size: 15px; color: var(--ink); background: var(--paper); border-left: 3px solid var(--gold); padding: 8px 12px; border-radius: 0 8px 8px 0; display: inline-block; }
-  .adv .body-extra { grid-column: 2; margin-top: 20px; }
-  .sort-demo { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-  .sd { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--white); font-size: 14px; }
-  .sd b { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; margin-bottom: 6px; }
-  .sd b.pub { background: #e3f0e8; color: #2f6b4a; }
-  .sd b.prv { background: #eef0f4; color: var(--ink); }
-  .sd span { color: var(--muted); display: block; }
+  .modes { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: clamp(64px, 8vw, 110px); border: 1px solid var(--hair); border-radius: 4px; }
+  .mode { padding: 34px; }
+  .mode + .mode { border-left: 1px solid var(--hair); }
+  .mode.ours { background: var(--raised); }
+  .dots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 28px; max-width: 240px; }
+  .dots i { aspect-ratio: 4 / 5; border-radius: 2px; display: block; }
+  .d-open { background: rgba(241, 233, 223, .55); }
+  .d-hide { border: 1px solid var(--hair); }
+  .d-you { background: var(--rose); }
+  .mode h3 { font: 400 26px/1.15 var(--serif); margin: 0 0 8px; }
+  .mode p { margin: 0; color: var(--smoke); font-size: 16px; }
+  .mode .verdict { display: block; margin-top: 18px; font-size: 14.5px; color: var(--smoke); }
+  .mode.ours .verdict { color: var(--champagne); }
 
   /* Live */
-  .live-grid { display: grid; grid-template-columns: .95fr 1.05fr; gap: 48px; align-items: center; }
-  .live-feed { background: var(--navy); border-radius: 22px; padding: 22px; color: #e8ebf2; }
-  .live-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; font-size: 14px; }
-  .live-badge { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: #fff; }
-  .live-badge i { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 rgba(200,36,108,.6); animation: pulse 2s infinite; }
-  @keyframes pulse { 70% { box-shadow: 0 0 0 9px rgba(200,36,108,0); } 100% { box-shadow: 0 0 0 0 rgba(200,36,108,0); } }
-  .feed { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .feed i { aspect-ratio: 1; border-radius: 7px; display: block; background: #26365a; }
-  .feed i.new { animation: arrive 6s infinite; }
-  .feed i.new.mine { box-shadow: inset 0 0 0 3px var(--accent); }
-  .feed i:nth-child(3n) { background: #34466e; } .feed i:nth-child(4n+1) { background: #2c3d62; }
-  @keyframes arrive { 0%, 20% { opacity: 0; transform: scale(.8); } 30%, 100% { opacity: 1; transform: none; } }
-  .toast-demo { margin-top: 14px; background: #fff; color: var(--ink); border-radius: 999px; padding: 9px 16px; font-weight: 600; font-size: 14px; display: inline-block; animation: arrive 6s infinite; }
-  .tick-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 18px; }
-  .tick-list li { display: grid; grid-template-columns: 30px 1fr; gap: 12px; }
-  .tick-list li::before { content: ""; width: 26px; height: 26px; border-radius: 8px; background: var(--accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c8246c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center/15px no-repeat; }
-  .tick-list strong { display: block; font: 700 18px/1.3 var(--display); }
-  .tick-list span { color: var(--muted); font-size: 16px; }
+  .live { background: var(--night-2); }
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(48px, 7vw, 110px); align-items: center; }
+  .split h2 { font: 400 clamp(36px, 5vw, 72px)/1.02 var(--serif); letter-spacing: -.03em; margin: 0 0 24px; }
+  .split .intro { color: var(--smoke); margin: 0 0 40px; max-width: 30em; }
+  .facts { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--hair); }
+  .facts li { padding: 20px 0; border-bottom: 1px solid var(--hair); display: grid; grid-template-columns: minmax(0, 12em) minmax(0, 1fr); gap: 20px; }
+  .facts b { font-weight: 400; color: var(--ivory); }
+  .facts span { color: var(--smoke); font-size: 16px; }
+  .stream { position: relative; border-radius: 4px; overflow: hidden; background: var(--night); padding: 22px; border: 1px solid var(--hair); }
+  .stream-top { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--smoke); margin-bottom: 18px; }
+  .on-air { display: inline-flex; align-items: center; gap: 10px; color: var(--ivory); }
+  .on-air i { width: 7px; height: 7px; border-radius: 50%; background: var(--rose); animation: breathe 2.4s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity: .25; } }
+  .stream-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .stream-grid .ph { aspect-ratio: 4 / 5; border-radius: 3px; position: relative; overflow: hidden; }
+  .stream-grid .ph svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .stream-grid .ph.fresh { animation: develop 7s ease-out infinite; }
+  .stream-grid .ph.yours::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 2px var(--rose); border-radius: 3px; }
+  @keyframes develop { 0%, 22% { opacity: 0; filter: brightness(2.2) blur(6px); } 40%, 100% { opacity: 1; filter: none; } }
+  .notice { margin-top: 18px; display: inline-flex; align-items: center; padding: 11px 18px; border-radius: 999px; background: var(--ivory); color: var(--night); font-size: 14.5px; animation: develop 7s ease-out infinite; }
 
-  /* Event owners */
-  .owner-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; }
-  .owner-grid > *, .live-grid > *, .adv > * { min-width: 0; }
-  .dash { background: var(--white); border: 1px solid var(--line); border-radius: 18px; padding: 20px; box-shadow: 0 24px 50px -32px rgba(15,26,46,.35); }
-  .dash-head { font: 700 20px/1.2 var(--display); margin: 0 0 2px; }
-  .dash-sub { font-size: 13.5px; color: var(--muted); margin: 0 0 14px; }
-  .dash-tabs { display: flex; gap: 14px; border-bottom: 1px solid var(--line); font-size: 13.5px; color: var(--muted); margin-bottom: 14px; overflow: hidden; white-space: nowrap; }
-  .dash-tabs span { padding-bottom: 8px; }
-  .dash-tabs .on { color: var(--ink); border-bottom: 2px solid var(--accent); font-weight: 600; }
-  .dash-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
-  .dash-row:last-child { border-bottom: 0; }
-  .dash-row em { font-style: normal; color: var(--muted); font-size: 13.5px; }
-  .sw { width: 34px; height: 20px; border-radius: 999px; background: var(--accent); position: relative; flex: none; }
-  .sw::after { content: ""; position: absolute; right: 3px; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
-  .chip { font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #fdf0d9; color: #8a5a00; }
-  .two-ways { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 26px; }
-  .way { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
-  .way b { display: block; font: 700 17px/1.3 var(--display); margin-bottom: 4px; }
-  .way span { color: var(--muted); font-size: 15px; }
+  /* Hosts */
+  .split > * { min-width: 0; }
+  .panel { background: var(--raised); border: 1px solid var(--hair); border-radius: 4px; padding: 30px; }
+  .panel-title { font: 400 30px/1.1 var(--serif); margin: 0; }
+  .panel-sub { color: var(--smoke); font-size: 14.5px; margin: 6px 0 22px; }
+  .panel-tabs { display: flex; gap: 22px; font-size: 14px; color: var(--smoke); border-bottom: 1px solid var(--hair); margin-bottom: 8px; white-space: nowrap; overflow: hidden; }
+  .panel-tabs span { padding-bottom: 12px; }
+  .panel-tabs .on { color: var(--ivory); box-shadow: inset 0 -1px 0 var(--champagne); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--hair); font-size: 15.5px; }
+  .row:last-child { border-bottom: 0; }
+  .row em { font-style: normal; color: var(--smoke); }
+  .tag { font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--champagne); color: var(--champagne); white-space: nowrap; }
+  .switch { width: 36px; height: 20px; border-radius: 999px; background: var(--champagne); position: relative; flex: none; }
+  .switch::after { content: ""; position: absolute; right: 3px; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--night); }
+  .ways { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin: 40px 0 36px; }
+  .ways b { display: block; font: 400 21px/1.25 var(--serif); margin-bottom: 6px; }
+  .ways span { color: var(--smoke); font-size: 16px; }
 
-  /* Final CTA */
-  .final { background: var(--navy); color: #fff; border-radius: 24px; padding: 56px 40px; text-align: center; }
-  .final h2 { font: 800 clamp(30px, 4vw, 42px)/1.1 var(--display); letter-spacing: -.03em; margin: 0 0 12px; }
-  .final p { color: #b9c2d4; margin: 0 auto 28px; max-width: 32em; }
-  .final .btn-ghost { color: #fff; border-color: #3b4a68; }
-  .final .btn-ghost:hover { border-color: #fff; }
+  /* Photographers */
+  .craft { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--hair); }
+  .craft div { padding: 34px 34px 34px 0; border-bottom: 1px solid var(--hair); }
+  .craft div:not(:nth-child(3n+1)) { padding-left: 34px; border-left: 1px solid var(--hair); }
+  .craft h3 { font: 400 23px/1.2 var(--serif); margin: 0 0 10px; }
+  .craft p { margin: 0; color: var(--smoke); font-size: 16px; }
 
-  footer { padding: 36px 0 48px; color: var(--muted); font-size: 14.5px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+  /* Pricing */
+  .tiers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--hair); border-radius: 4px; }
+  .tier { padding: 40px 34px; display: flex; flex-direction: column; }
+  .tier + .tier { border-left: 1px solid var(--hair); }
+  .tier.mark { background: var(--raised); box-shadow: inset 0 1px 0 var(--champagne); }
+  .tier h3 { font: 400 26px/1.1 var(--serif); margin: 0 0 6px; }
+  .tier .for { color: var(--smoke); font-size: 15.5px; margin: 0 0 30px; min-height: 3.2em; }
+  .amount { font: 400 58px/1 var(--serif); letter-spacing: -.03em; margin: 0; }
+  .amount small { font: 300 15px/1 var(--sans); color: var(--smoke); letter-spacing: 0; margin-left: 6px; }
+  .tier ul { list-style: none; padding: 0; margin: 30px 0 36px; font-size: 16px; color: var(--smoke); }
+  .tier li { padding: 10px 0; border-bottom: 1px solid var(--hair); }
+  .tier li:first-child { border-top: 1px solid var(--hair); }
+  .tier .btn { margin-top: auto; }
+  .founding { margin: 28px 0 0; color: var(--smoke); font-size: 16px; }
+  .founding b { font-weight: 400; color: var(--champagne); margin-right: 8px; }
 
-  @media (max-width: 900px) {
-    .live-grid, .owner-grid { grid-template-columns: 1fr; gap: 32px; }
-    .owner-grid .dash { order: 2; }
-    .hero { grid-template-columns: 1fr; padding-top: 24px; gap: 40px; }
-    .steps, .compare, .plans { grid-template-columns: 1fr; }
-    .privacy, .features { grid-template-columns: 1fr; }
+  /* Close */
+  .close { text-align: center; padding: clamp(110px, 16vw, 210px) 0 clamp(90px, 12vw, 150px); }
+  .close h2 { font: 400 clamp(44px, 7vw, 104px)/.98 var(--serif); letter-spacing: -.035em; margin: 0 auto 26px; max-width: 11em; }
+  .close h2 span { display: block; font-style: italic; color: var(--champagne); }
+  .close p { color: var(--smoke); margin: 0 auto 44px; max-width: 30em; }
+  .close .ctas { justify-content: center; }
+
+  footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; padding-top: 32px; padding-bottom: 48px; border-top: 1px solid var(--hair); color: var(--smoke); font-size: 14px; }
+
+  @media (max-width: 960px) {
     .nav-links a:not(.btn) { display: none; }
+    .wall { inset: auto -30% -6% -30%; height: 52%; grid-template-columns: repeat(8, 1fr); }
+    .hero { align-items: start; }
+    .hero-copy { padding-top: 116px; padding-bottom: 380px; }
+    .hero-fade { background: linear-gradient(180deg, var(--night) 0%, rgba(22,14,27,.96) 52%, rgba(22,14,27,.1) 68%, rgba(22,14,27,.5) 100%); }
+    .sec-head, .split, .five li { grid-template-columns: 1fr; }
+    .sec-head p { justify-self: start; }
+    .five li { gap: 14px; }
+    .modes, .tiers { grid-template-columns: 1fr; }
+    .mode + .mode, .tier + .tier { border-left: 0; border-top: 1px solid var(--hair); }
+    .craft { grid-template-columns: 1fr 1fr; }
+    .craft div, .craft div:not(:nth-child(3n+1)) { padding: 28px 24px 28px 0; border-left: 0; }
+    .craft div:nth-child(2n) { padding-left: 24px; border-left: 1px solid var(--hair); }
+    .hosts .panel { order: 2; }
   }
-  @media (max-width: 480px) {
-    body { font-size: 16px; }
-    .adv { grid-template-columns: 1fr; }
-    .adv::before { grid-row: auto; font-size: 26px; }
-    .adv .body-extra { grid-column: 1; }
-    .two-ways { grid-template-columns: 1fr; }
-    .nav .btn-ghost { display: none; }
-    .final { padding: 40px 20px; }
-    section.band { padding: 60px 0; }
+  @media (max-width: 560px) {
+    body { font-size: 17px; }
+    .nav .btn-line { display: none; }
+    .facts li { grid-template-columns: 1fr; gap: 4px; }
+    .ways, .craft { grid-template-columns: 1fr; }
+    .craft div, .craft div:nth-child(2n) { padding: 26px 0; border-left: 0; }
+    .five:hover li:not(:hover) { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .on-air i, .stream-grid .ph.fresh, .notice { animation: none; }
+    .five li { transition: none; }
   }
 </style>
 </head>
 <body>
 
-<header class="wrap nav">
-  <a class="logo" href="#top" aria-label="EventPhotos home"><span class="logo-mark" aria-hidden="true"></span>EventPhotos</a>
-  <nav class="nav-links" aria-label="Main">
-    <a href="#why">Why us</a>
-    <a href="#live">Live photos</a>
-    <a href="#hosts">For hosts</a>
-    <a href="#photographers">For photographers</a>
-    <a href="#pricing">Pricing</a>
-    <a class="btn btn-ghost" href="app.html" data-auth="signin">Sign in</a>
-    <a class="btn btn-dark" href="app.html#signup" data-auth="signup">Get started</a>
-  </nav>
+<header class="nav">
+  <div class="wrap">
+    <a class="wordmark" href="#top" aria-label="EventPhotos home">Event<i>Photos</i></a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="#why">Why us</a>
+      <a href="#live">Live photos</a>
+      <a href="#hosts">For hosts</a>
+      <a href="#photographers">For photographers</a>
+      <a href="#pricing">Pricing</a>
+      <a class="btn btn-line" href="app.html" data-auth="signin">Sign in</a>
+      <a class="btn btn-solid" href="app.html#signup" data-auth="signup">Get started</a>
+    </nav>
+  </div>
 </header>
 
 <main id="top">
-  <!-- Hero -->
-  <div class="wrap hero">
-    <div>
-      <h1>Every guest gets their photos.<span class="line2">Nobody gets everyone else's.</span></h1>
-      <p class="lede">Guests take a selfie and see the shared moments plus every photo they're in, even while the party is still going. Our AI decides, photo by photo, what everyone can see and what stays with the people in it.</p>
-      <div class="hero-ctas">
-        <a class="btn btn-primary" href="app.html#signup" data-auth="signup">Start your first event</a>
-        <a class="btn btn-ghost" href="app.html" data-auth="signin">Sign in</a>
-      </div>
-      <p class="hero-note">For photographers, planners, venues and anyone hosting their own event. No app for guests to install.</p>
-    </div>
-
-    <figure class="phone" aria-label="Example: a guest's gallery after their selfie. Shared photos are visible, private photos unlock only if the guest is in them.">
-      <div class="screen">
-        <div class="screen-head">
-          <div class="selfie" aria-hidden="true"></div>
-          <div><div class="screen-title">Ada and Tobi</div><div class="screen-sub">Your photos, found by your selfie</div></div>
-        </div>
-        <div class="tiles" aria-hidden="true">
-          <!-- shared: decor -->
-          <div class="tile"><svg viewBox="0 0 60 60"><rect width="60" height="60" fill="#f3e3c6"/><rect x="18" y="30" width="24" height="18" rx="2" fill="#fff"/><rect x="21" y="20" width="18" height="12" rx="2" fill="#fbe7f0"/><circle cx="30" cy="16" r="4" fill="#e0a526"/></svg></div>
-          <!-- private, not yours -->
-          <div class="tile"><svg viewBox="0 0 60 60"><rect width="60" height="60" fill="#cfd8ea"/><circle cx="22" cy="26" r="7" fill="#5b4033"/><circle cx="40" cy="27" r="7" fill="#7a5442"/><rect x="12" y="35" width="20" height="25" rx="8" fill="#2d6a8a"/><rect x="30" y="36" width="20" height="24" rx="8" fill="#e0a526"/></svg><div class="veil"><svg viewBox="0 0 24 24" fill="none" stroke="#5d6577" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div></div>
-          <!-- private, yours -->
-          <div class="tile mine"><svg viewBox="0 0 60 60"><rect width="60" height="60" fill="#e8d5df"/><circle cx="30" cy="24" r="8" fill="#8a5a44"/><rect x="19" y="33" width="22" height="27" rx="9" fill="#c8246c"/></svg><div class="veil"><svg viewBox="0 0 24 24" fill="none" stroke="#5d6577" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div></div>
-          <!-- shared: the hosts -->
-          <div class="tile"><svg viewBox="0 0 60 60"><rect width="60" height="60" fill="#d9e4dc"/><circle cx="23" cy="24" r="7" fill="#5b4033"/><circle cx="38" cy="23" r="7" fill="#6e4a3a"/><path d="M14 60V40a9 9 0 0 1 18 0v20z" fill="#fff"/><path d="M29 60V39a9 9 0 0 1 18 0v21z" fill="#0f1a2e"/><path d="M16 18l7-6 7 6z" fill="#e0a526"/></svg></div>
-          <!-- private, yours -->
-          <div class="tile mine"><svg viewBox="0 0 60 60"><rect width="60" height="60" fill="#f6dccb"/><circle cx="20" cy="27" r="7" fill="#8a5a44"/><circle cx="41" cy="25" r="7" fill="#4b3329"/><rect x="10" y="35" width="20" height="25" rx="8" fill="#c8246c"/><rect x="31" y="33" width="20" height="27" rx="8" fill="#2d6a8a"/></svg><div class="veil"><svg viewBox="0 0 24 24" fill="none" stroke="#5d6577" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div></div>
-          <!-- private, not yours -->
-          <div class="tile"><svg viewBox="0 0 60 60"><rect width="60" height="60" fill="#dde3ef"/><circle cx="30" cy="25" r="8" fill="#6e4a3a"/><rect x="19" y="34" width="22" height="26" rx="9" fill="#3c8d5b"/></svg><div class="veil"><svg viewBox="0 0 24 24" fill="none" stroke="#5d6577" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div></div>
-        </div>
-        <div class="legend">
-          <span><i class="dot" style="background:#c9d2e3"></i>Shared with all</span>
-          <span><i class="dot" style="background:var(--accent)"></i>You're in it</span>
-          <span><i class="dot" style="background:#e2e6ed"></i>Not yours</span>
-        </div>
-      </div>
-      <figcaption class="caption">Shared moments for everyone. Your candids for you.</figcaption>
-    </figure>
-  </div>
-
-  <!-- How it works -->
-  <section class="band alt" id="how">
+  <!-- Hero: photos stay out of focus until the lens finds you -->
+  <section class="hero" aria-labelledby="heroTitle">
+    <div class="wall soft" id="wallSoft" aria-hidden="true"></div>
+    <div class="lens-clip" aria-hidden="true"><div class="wall" id="wallSharp"></div></div>
+    <div class="lens" aria-hidden="true"><span class="lens-label">Only what's yours comes into focus</span></div>
+    <div class="hero-fade"></div>
     <div class="wrap">
-      <p class="kicker">How it works</p>
-      <h2 class="title">From the camera to every guest's phone, sorted for you</h2>
-      <p class="intro">No tagging, no sorting thousands of photos by hand, no apps for guests to download.</p>
-      <ol class="steps">
-        <li><h3>Upload as you shoot, or after</h3><p>Send photos from your laptop or phone during the event, or drag in the whole folder afterwards. Sort them yourself, or leave them for the AI.</p></li>
-        <li><h3>AI sorts every photo</h3><p>Using rules you set, it shares decor, portraits of the hosts and big group shots, and keeps guests' candids private. Anything it isn't sure about stays private.</p></li>
-        <li><h3>Guests scan and take a selfie</h3><p>A QR code on each table opens their gallery: everything shared, plus every photo they're in. Nobody else's.</p></li>
-      </ol>
+      <div class="hero-copy">
+        <h1 id="heroTitle">Every guest gets their photos.<span>Nobody gets everyone else's.</span></h1>
+        <p class="lede">Guests take a selfie and see the shared moments plus every photo they're in, even while the event is still going. AI decides, photo by photo, what everyone sees and what stays with the people in it.</p>
+        <div class="ctas">
+          <a class="btn btn-solid" href="app.html#signup" data-auth="signup">Start your first event</a>
+          <a class="btn btn-line" href="app.html" data-auth="signin">Sign in</a>
+        </div>
+        <p class="hero-note">For photographers, planners, venues and anyone hosting their own event. Nothing for guests to install.</p>
+      </div>
     </div>
   </section>
 
-  <!-- Why us: the five advantages -->
-  <section class="band" id="why">
+  <!-- Statement -->
+  <section class="statement">
     <div class="wrap">
-      <p class="kicker">Why EventPhotos</p>
-      <h2 class="title">Five reasons events run on EventPhotos</h2>
-      <p class="intro">From the first QR code to the last download: sorted, live, secure and managed in one place.</p>
+      <p class="big">A guest's face isn't content. It's <em>theirs.</em> We built the gallery around that.</p>
+      <p class="sub">Shared moments for everyone. Candids only for the people in them. Every decision made photo by photo, and every face deleted when the event is over.</p>
+    </div>
+  </section>
 
-      <div class="adv-list">
-        <div class="adv">
+  <!-- The five -->
+  <section class="sec" id="why" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>Five reasons events run on EventPhotos</h2>
+        <p>From the first QR code to the last download: sorted, live, secure and managed in one place.</p>
+      </div>
+      <ul class="five">
+        <li>
+          <h3>AI decides what's shared, photo by photo</h3>
           <div>
-            <h3>AI decides what's shared, photo by photo</h3>
-            <p>Every photo is checked against the event's own rules. Decor, portraits of the people you're celebrating and the big moments go to everyone; guests' candids stay with the people in them. Add a few photos of the hosts and every photo with them is shared automatically. Anything the AI isn't sure about stays private, and you can flip any decision.</p>
-            <p class="vs">Most tools make privacy one switch for the whole gallery, or leave you tagging 3,000 photos by hand.</p>
+            <p>Every photo is checked against the event's own rules. Decor, portraits of the people you're celebrating and the big moments go to everyone; guests' candids stay with the people in them. Add a few photos of the hosts and every photo with them is shared automatically.</p>
+            <p class="aside">Anything the AI isn't sure about stays private. You can change any decision.</p>
           </div>
-          <div class="body-extra compare">
-            <div class="opt">
-              <div class="mini" aria-hidden="true"><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i></div>
-              <h3>Everyone sees everything</h3>
-              <p>Face search only filters the gallery. Every candid is one scroll away.</p>
-              <span class="verdict">Easy, but nothing is private</span>
-            </div>
-            <div class="opt">
-              <div class="mini" aria-hidden="true"><i class="m-lock"></i><i class="m-mine"></i><i class="m-lock"></i><i class="m-lock"></i><i class="m-lock"></i><i class="m-lock"></i><i class="m-mine"></i><i class="m-lock"></i></div>
-              <h3>Only your own</h3>
-              <p>Guests miss the venue, the hosts and the big moments.</p>
-              <span class="verdict">Private, but guests miss the day</span>
-            </div>
-            <div class="opt us">
-              <div class="mini" aria-hidden="true"><i class="m-open"></i><i class="m-mine"></i><i class="m-lock"></i><i class="m-open"></i><i class="m-open"></i><i class="m-lock"></i><i class="m-mine"></i><i class="m-open"></i></div>
-              <h3>Shared moments plus your own</h3>
-              <p>The AI shares what everyone should see and keeps candids for the people in them.</p>
-              <span class="verdict">EventPhotos</span>
-            </div>
+        </li>
+        <li>
+          <h3>Create your event dashboard in minutes</h3>
+          <div>
+            <p>Name the event and set the dates, and you have a guest link, a QR code for the tables and an upload link for the photographer. Add the names, venue, schedule, dress code and a welcome note, and guests see them on the same page where they find their photos.</p>
+            <p class="aside">Photographers and planners set it up for clients, or hosts do it themselves.</p>
           </div>
+        </li>
+        <li>
+          <h3>Live photo sharing to guests</h3>
+          <div>
+            <p>Guests don't wait weeks. The photographer uploads as they shoot, and guests see the shared moments and their own photos while the event is still going.</p>
+            <p class="aside">Guests who opt in get new photos of themselves without taking another selfie.</p>
+          </div>
+        </li>
+        <li id="privacy">
+          <h3>Secure event hosting</h3>
+          <div>
+            <p>Built by an information security professional for the events where privacy matters most. Guests agree before their selfie is compared, and selfies are never stored. Codes are kept only in scrambled form, each event's photos and face data are kept apart from every other event, and everything is deleted on a schedule or with one click.</p>
+            <p class="aside">Any link can be turned off at once.</p>
+          </div>
+        </li>
+        <li>
+          <h3>Event management and dashboard</h3>
+          <div>
+            <p>One place to run every event: a review queue for the AI's decisions, approval before guests see anything, host recognition, sorting rules and stats on who found and downloaded their photos. Invite the host to their own view of the event.</p>
+            <p class="aside">Your studio's name, logo and booking link on every guest page.</p>
+          </div>
+        </li>
+      </ul>
+
+      <div class="modes">
+        <div class="mode">
+          <div class="dots" aria-hidden="true"><i class="d-open"></i><i class="d-open"></i><i class="d-open"></i><i class="d-open"></i><i class="d-open"></i><i class="d-open"></i><i class="d-open"></i><i class="d-open"></i><i class="d-open"></i><i class="d-open"></i><i class="d-open"></i><i class="d-open"></i></div>
+          <h3>Everyone sees everything</h3>
+          <p>Face search only filters the gallery. Every candid is one scroll away.</p>
+          <span class="verdict">Easy, but nothing is private</span>
         </div>
-
-        <div class="adv">
-          <div>
-            <h3>Create your event dashboard in minutes</h3>
-            <p>Name the event, set the dates, and you get a guest link, a QR code for the tables and an upload link for the photographer. Add the names, venue, schedule, dress code or aso-ebi colours and a welcome note, and guests see it all on the same page where they find their photos. Photographers and planners set it up for their clients, or hosts do it themselves.</p>
-            <p class="vs"><a href="#hosts">How hosts get their dashboard →</a></p>
-          </div>
+        <div class="mode">
+          <div class="dots" aria-hidden="true"><i class="d-hide"></i><i class="d-you"></i><i class="d-hide"></i><i class="d-hide"></i><i class="d-hide"></i><i class="d-hide"></i><i class="d-hide"></i><i class="d-hide"></i><i class="d-you"></i><i class="d-hide"></i><i class="d-hide"></i><i class="d-hide"></i></div>
+          <h3>Only your own</h3>
+          <p>Guests miss the venue, the hosts and the big moments.</p>
+          <span class="verdict">Private, but guests miss the day</span>
         </div>
-
-        <div class="adv">
-          <div>
-            <h3>Live photo sharing to guests</h3>
-            <p>Guests don't wait days or weeks. The photographer uploads as they shoot, and guests see the shared moments and their own photos during the reception. Guests who opt in get new photos of themselves automatically, without taking another selfie.</p>
-            <p class="vs"><a href="#live">See live photos →</a></p>
-          </div>
-        </div>
-
-        <div class="adv" id="privacy">
-          <div>
-            <h3>Secure event hosting</h3>
-            <p>Built by an information security professional for the events where privacy matters most. Guests agree before their selfie is compared, and selfies are never stored. Codes are kept only in scrambled form, each event's photos and face data are kept separate from every other event, and everything is deleted on a schedule or with one click. Any link can be turned off at once.</p>
-            <p class="vs">Ready for clients who ask where their guests' faces go.</p>
-          </div>
-        </div>
-
-        <div class="adv">
-          <div>
-            <h3>Event management and dashboard</h3>
-            <p>One place to run every event: a review queue for the AI's decisions, approval before guests see anything, host recognition, sorting rules, new links if one leaks, and stats on who found and downloaded their photos. Invite the host to their own view of the event, and put your studio's name, logo and booking link on every guest page.</p>
-            <p class="vs"><a href="#photographers">What photographers get →</a></p>
-          </div>
+        <div class="mode ours">
+          <div class="dots" aria-hidden="true"><i class="d-open"></i><i class="d-you"></i><i class="d-hide"></i><i class="d-open"></i><i class="d-open"></i><i class="d-hide"></i><i class="d-open"></i><i class="d-hide"></i><i class="d-you"></i><i class="d-open"></i><i class="d-hide"></i><i class="d-open"></i></div>
+          <h3>Shared moments plus your own</h3>
+          <p>AI shares what everyone should see and keeps candids for the people in them.</p>
+          <span class="verdict">How EventPhotos works</span>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Live photos -->
-  <section class="band alt" id="live">
-    <div class="wrap live-grid">
+  <!-- Live -->
+  <section class="sec live" id="live">
+    <div class="wrap split">
       <div>
-        <p class="kicker">New: live photos</p>
-        <h2 class="title">Photos while the party is still going</h2>
-        <p class="intro" style="margin-bottom:28px">Turn on live mode and guests don't wait days for their photos. They see them during the reception, while everyone is still there to share them.</p>
-        <ul class="tick-list">
-          <li><div><strong>Upload as you shoot</strong><span>The photographer sends photos from a laptop or phone through the same upload link, and each one is sorted in seconds.</span></div></li>
-          <li><div><strong>New photos of you, without another selfie</strong><span>Guests can choose to be found in new photos automatically. We keep a face signature, never the selfie, and delete it when they stop or the event ends.</span></div></li>
-          <li><div><strong>Galleries refresh by themselves</strong><span>Guests see "3 new photos of you" and tap to look.</span></div></li>
-          <li><div><strong>Approve first, if you prefer</strong><span>Hold new photos until the host or the photographer approves them. Guests see nothing until then.</span></div></li>
+        <h2>Photos while the night is still going</h2>
+        <p class="intro">Turn on live photos and guests see the evening as it happens, while everyone is still in the room to share it.</p>
+        <ul class="facts">
+          <li><b>Upload as you shoot</b><span>From a laptop or phone, through the same upload link. Each photo is sorted in seconds.</span></li>
+          <li><b>New photos of you</b><span>Guests can opt in to be found in new photos automatically. We keep a face signature, never the selfie, and delete it when they stop or the event ends.</span></li>
+          <li><b>Galleries refresh themselves</b><span>Guests see a note when new photos of them arrive, and tap to look.</span></li>
+          <li><b>Approve first, if you prefer</b><span>Hold every photo until the host or photographer approves it.</span></li>
         </ul>
       </div>
-      <div class="live-feed" aria-hidden="true">
-        <div class="live-top"><span class="live-badge"><i></i>Live · Ada &amp; Tobi</span><span>Reception</span></div>
-        <div class="feed">
-          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-          <i class="new mine"></i><i class="new"></i><i class="new mine"></i><i class="new"></i>
-        </div>
-        <span class="toast-demo">2 new photos of you · Show</span>
+      <div class="stream" aria-hidden="true">
+        <div class="stream-top"><span class="on-air"><i></i>Live now</span><span>Reception, 9:42 pm</span></div>
+        <div class="stream-grid" id="stream"></div>
+        <span class="notice">2 new photos of you · Show</span>
       </div>
     </div>
   </section>
 
-  <!-- Event owners -->
-  <section class="band" id="hosts">
-    <div class="wrap owner-grid">
-      <div class="dash" aria-hidden="true">
-        <p class="dash-head">Ada &amp; Tobi</p>
-        <p class="dash-sub">19 to 21 Nov · Eko Hotel, Victoria Island</p>
-        <div class="dash-tabs"><span>Share</span><span class="on">Photos</span><span>Event page</span><span>Live &amp; approval</span><span>Hosts</span></div>
-        <div class="dash-row"><span>Waiting for your approval</span><span class="chip">24 photos</span></div>
-        <div class="dash-row"><span>Live photos during the event</span><span class="sw"></span></div>
-        <div class="dash-row"><span>Approve before guests see them</span><span class="sw"></span></div>
-        <div class="dash-row"><span>Guests who found their photos</span><em>312 of 400</em></div>
+  <!-- Hosts -->
+  <section class="sec hosts" id="hosts">
+    <div class="wrap split">
+      <div class="panel" aria-hidden="true">
+        <p class="panel-title">Kemi at 40</p>
+        <p class="panel-sub">5 December, The Wheatbaker, Ikoyi</p>
+        <div class="panel-tabs"><span>Share</span><span class="on">Photos</span><span>Event page</span><span>Live &amp; approval</span><span>Hosts</span></div>
+        <div class="row"><span>Waiting for your approval</span><span class="tag">24 photos</span></div>
+        <div class="row"><span>Live photos during the event</span><span class="switch"></span></div>
+        <div class="row"><span>Approve before guests see them</span><span class="switch"></span></div>
+        <div class="row"><span>Guests who found their photos</span><em>212 of 260</em></div>
       </div>
       <div>
-        <p class="kicker">For event hosts</p>
-        <h2 class="title">Your own event dashboard</h2>
-        <p class="intro" style="margin-bottom:24px">The people you're celebrating get a say in what their guests see, without waiting on anyone.</p>
-        <ul class="tick-list">
-          <li><div><strong>Your event page</strong><span>Names, venue, schedule, dress code or aso-ebi colours and a welcome note, on the same link guests use to find their photos.</span></div></li>
-          <li><div><strong>Approve photos before guests see them</strong><span>Review every photo, share or hide any of them, and ask the AI to look again.</span></div></li>
-          <li><div><strong>Recognised in your own photos</strong><span>Add the faces of the people being celebrated so every photo of them is shared with everyone.</span></div></li>
-          <li><div><strong>See who found their photos</strong><span>Selfies, downloads and guests on live updates, as they happen.</span></div></li>
+        <h2>Your own event dashboard</h2>
+        <p class="intro">The people you're celebrating decide what their guests see, without waiting on anyone.</p>
+        <ul class="facts">
+          <li><b>Your event page</b><span>Names, venue, schedule, dress code and a welcome note, on the same link guests use to find their photos.</span></li>
+          <li><b>Approve every photo</b><span>Share or hide any photo, and ask the AI to look again.</span></li>
+          <li><b>Recognised in your photos</b><span>Add the faces of the people being celebrated, and every photo of them is shared with everyone.</span></li>
+          <li><b>See who found their photos</b><span>Selfies, downloads and guests on live updates, as they happen.</span></li>
         </ul>
-        <div class="two-ways">
-          <div class="way"><b>Invited by your photographer</b><span>They add your email; you sign up and the event is already there.</span></div>
-          <div class="way"><b>Or set it up yourself</b><span>Create your event, then send the upload link to your photographer.</span></div>
+        <div class="ways">
+          <div><b>Invited by your photographer</b><span>They add your email. You sign up, and the event is already there.</span></div>
+          <div><b>Or set it up yourself</b><span>Create your event, then send the upload link to your photographer.</span></div>
         </div>
-        <div class="hero-ctas" style="margin-top:24px">
-          <a class="btn btn-primary" href="app.html#signup" data-auth="signup">Set up your event</a>
-        </div>
+        <a class="btn btn-solid" href="app.html#signup" data-auth="signup">Set up your event</a>
       </div>
     </div>
   </section>
 
   <!-- Photographers -->
-  <section class="band alt" id="photographers">
+  <section class="sec" id="photographers" style="padding-top:0">
     <div class="wrap">
-      <p class="kicker">For photographers and event businesses</p>
-      <h2 class="title">Every guest's gallery markets your studio</h2>
-      <p class="intro">Hundreds of guests open their photos. Every one of them sees your name, your logo and a button to book you.</p>
-      <div class="features">
-        <div class="feature"><h3>Your brand on every gallery</h3><p>"Photos by" with your logo, booking link and Instagram on every guest page.</p></div>
-        <div class="feature"><h3>Delivery during the event, not weeks later</h3><p>Turn on live photos and guests find themselves while the party is still going.</p></div>
-        <div class="feature"><h3>A review queue, not a sorting job</h3><p>Check the AI's calls it wasn't sure about, flip anything in one tap, and re-sort with new rules.</p></div>
-        <div class="feature"><h3>Proof of what you delivered</h3><p>See how many guests found their photos, opened them and downloaded them.</p></div>
-        <div class="feature"><h3>One QR code per event</h3><p>Print it on table cards. Guests scan, take a selfie, and they're in.</p></div>
-        <div class="feature"><h3>A dashboard for your clients</h3><p>Invite your client, the event host, by email or WhatsApp. They approve photos and edit their event page; you keep control of uploads and deletion.</p></div>
+      <div class="sec-head">
+        <h2>Every gallery markets your studio</h2>
+        <p>Hundreds of guests open their photos, and every one of them sees your name, your logo and a way to book you.</p>
+      </div>
+      <div class="craft">
+        <div><h3>Your brand on every gallery</h3><p>"Photos by" with your logo, booking link and Instagram on every guest page.</p></div>
+        <div><h3>Delivered during the event</h3><p>Turn on live photos and guests find themselves while the night is still going.</p></div>
+        <div><h3>A review queue, not a sorting job</h3><p>Check the calls the AI wasn't sure about, change any in one tap, and re-sort with new rules.</p></div>
+        <div><h3>Proof of what you delivered</h3><p>How many guests found their photos, opened them and downloaded them.</p></div>
+        <div><h3>One QR code per event</h3><p>Print it on table cards. Guests scan, take a selfie, and they're in.</p></div>
+        <div><h3>A dashboard for your clients</h3><p>Invite the host by email or WhatsApp. You keep control of uploads and deletion.</p></div>
       </div>
     </div>
   </section>
 
   <!-- Pricing -->
-  <section class="band" id="pricing">
+  <section class="sec" id="pricing" style="padding-top:0">
     <div class="wrap">
-      <p class="kicker">Pricing</p>
-      <h2 class="title">Pay per event, or go monthly when you're busy</h2>
-      <p class="intro">Every plan includes AI sorting, host recognition, live photos, the host's dashboard and the review queue.</p>
-      <div class="plans">
-        <div class="plan">
-          <h3>Single event</h3><p class="for">One wedding or celebration, for photographers or hosts</p>
-          <p class="price">$69<small> per event</small></p>
+      <div class="sec-head">
+        <h2>Pay per event, or monthly when you're busy</h2>
+        <p>Every plan includes AI sorting, host recognition, live photos, the host's dashboard and the review queue.</p>
+      </div>
+      <div class="tiers">
+        <div class="tier">
+          <h3>Single event</h3><p class="for">One celebration, for photographers or hosts</p>
+          <p class="amount">$69<small>per event</small></p>
           <ul><li>Up to 3,000 photos</li><li>Guest selfie access and QR code</li><li>Live photos and approval</li><li>Photos kept for 90 days</li></ul>
-          <a class="btn btn-ghost" href="app.html#signup" data-auth="signup">Start an event</a>
+          <a class="btn btn-line" href="app.html#signup" data-auth="signup">Start an event</a>
         </div>
-        <div class="plan featured">
+        <div class="tier mark">
           <h3>Studio</h3><p class="for">Photographers with regular events</p>
-          <p class="price">$99<small> per month</small></p>
+          <p class="amount">$99<small>per month</small></p>
           <ul><li>Up to 6 events a month</li><li>Up to 3,000 photos per event</li><li>Your branding on every guest page</li><li>Photos kept for 6 months</li></ul>
-          <a class="btn btn-dark" href="app.html#signup" data-auth="signup">Start free trial</a>
+          <a class="btn btn-solid" href="app.html#signup" data-auth="signup">Start free trial</a>
         </div>
-        <div class="plan">
+        <div class="tier">
           <h3>Business</h3><p class="for">Planners, venues and large studios</p>
-          <p class="price">Custom</p>
+          <p class="amount">Custom</p>
           <ul><li>Unlimited events and team members</li><li>Volume pricing and invoicing</li><li>Priority support</li></ul>
-          <a class="btn btn-ghost" href="mailto:hello@eventphotos.example?subject=Business%20plan">Talk to us</a>
+          <a class="btn btn-line" href="mailto:hello@eventphotos.example?subject=Business%20plan">Talk to us</a>
         </div>
       </div>
-      <p class="offer"><strong>Founding studios:</strong> the first photographers to join get three months of Studio free.</p>
+      <p class="founding"><b>Founding studios</b>The first photographers to join get three months of Studio free.</p>
     </div>
   </section>
 
-  <!-- Final CTA -->
-  <section class="wrap" style="padding-bottom:24px">
-    <div class="final">
-      <h2>Give every guest their photos tonight</h2>
-      <p>Set up an event, print the QR code, and turn on live photos. It takes about five minutes, for photographers and hosts alike.</p>
-      <div class="hero-ctas" style="justify-content:center">
-        <a class="btn btn-primary" href="app.html#signup" data-auth="signup">Get started</a>
-        <a class="btn btn-ghost" href="app.html" data-auth="signin">Sign in</a>
+  <!-- Close -->
+  <section class="close">
+    <div class="wrap">
+      <h2>Your event. Your guests.<span>Their photos.</span></h2>
+      <p>Set up an event, print the QR code and turn on live photos. It takes about five minutes.</p>
+      <div class="ctas">
+        <a class="btn btn-solid" href="app.html#signup" data-auth="signup">Get started</a>
+        <a class="btn btn-line" href="app.html" data-auth="signin">Sign in</a>
       </div>
     </div>
   </section>
 </main>
 
-<footer class="wrap">
-  <span>© <span id="year"></span> EventPhotos</span>
-  <span>Private photo delivery for weddings and events</span>
+<footer>
+  <div class="wrap">
+    <span>© <span id="year"></span> EventPhotos</span>
+    <span>Private photo delivery for events</span>
+  </div>
 </footer>
 
 <script>
 (() => {
   document.getElementById("year").textContent = new Date().getFullYear();
+
   // Returning customers who are still signed in go straight to their dashboard.
   let signedIn = false;
   try { signedIn = !!localStorage.getItem("ep-refresh"); } catch {}
   if (signedIn) {
     document.querySelectorAll('[data-auth="signin"]').forEach((a) => { a.textContent = "Open dashboard"; a.href = "app.html"; });
     document.querySelectorAll('.nav [data-auth="signup"]').forEach((a) => (a.hidden = true));
+  }
+
+  // Abstract "event photos": warm bokeh with silhouettes, drawn once and reused in both layers.
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const LIGHTS = ["#e9b872", "#cdb487", "#c46c86", "#f3d9b1", "#8f6aa8", "#e48d6f"];
+  const BASES = ["#2b1b2f", "#3a2233", "#251a33", "#3b2a24", "#2f1f28"];
+  function photo(i) {
+    const w = 80, h = 100, pick = (a) => a[Math.floor(rnd() * a.length)];
+    let s = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice"><rect width="${w}" height="${h}" fill="${pick(BASES)}"/>`;
+    for (let k = 0; k < 9; k++) {
+      const r = 4 + rnd() * 13;
+      s += `<circle cx="${(rnd() * w).toFixed(1)}" cy="${(rnd() * h * .7).toFixed(1)}" r="${r.toFixed(1)}" fill="${pick(LIGHTS)}" opacity="${(.18 + rnd() * .45).toFixed(2)}"/>`;
+    }
+    // Guests, backlit by the party lights: dark silhouettes with a soft warm rim.
+    const people = i % 4 === 3 ? 0 : 1 + Math.floor(rnd() * 3);
+    s += `<g fill="#0e0811" stroke="#e9b872" stroke-opacity=".35" stroke-width=".8">`;
+    for (let p = 0; p < people; p++) {
+      const cx = w * (people === 1 ? .5 : .26 + p * (.48 / (people - 1))) + (rnd() - .5) * 6;
+      const top = 38 + rnd() * 14, head = 8.5 + rnd() * 2.5, sh = 15 + rnd() * 4;
+      s += `<path d="M${(cx - sh).toFixed(1)} ${h + 2} C ${(cx - sh).toFixed(1)} ${(top + 20).toFixed(1)}, ${(cx - 6).toFixed(1)} ${(top + 13).toFixed(1)}, ${cx.toFixed(1)} ${(top + 13).toFixed(1)} C ${(cx + 6).toFixed(1)} ${(top + 13).toFixed(1)}, ${(cx + sh).toFixed(1)} ${(top + 20).toFixed(1)}, ${(cx + sh).toFixed(1)} ${h + 2} Z"/>`;
+      s += `<ellipse cx="${cx.toFixed(1)}" cy="${top.toFixed(1)}" rx="${(head * .8).toFixed(1)}" ry="${head.toFixed(1)}"/>`;
+    }
+    s += `</g>`;
+    if (people === 0) s += `<rect x="24" y="52" width="32" height="30" rx="2" fill="#f1e9df" opacity=".85"/><rect x="30" y="38" width="20" height="15" rx="2" fill="#e9dccb"/><circle cx="40" cy="32" r="3" fill="#cdb487"/>`;
+    return s + "</svg>";
+  }
+  const tiles = Array.from({ length: 48 }, (_, i) => `<div class="ph">${photo(i)}</div>`).join("");
+  document.getElementById("wallSoft").innerHTML = tiles;
+  document.getElementById("wallSharp").innerHTML = tiles;
+  document.getElementById("stream").innerHTML = Array.from({ length: 12 }, (_, i) => {
+    const cls = i >= 8 ? (i === 8 || i === 10 ? "ph fresh yours" : "ph fresh") : "ph";
+    return `<div class="${cls}">${photo(i + 30)}</div>`;
+  }).join("");
+
+  // The lens follows the pointer over the hero; without a mouse it drifts on its own.
+  const hero = document.querySelector(".hero");
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let target = null, pos = { x: 0, y: 0 }, t = 0, raf = 0;
+  const small = () => innerWidth < 960;
+  function size() {
+    hero.style.setProperty("--rx", small() ? "105px" : "150px");
+    hero.style.setProperty("--ry", small() ? "140px" : "200px");
+  }
+  function home() {
+    const r = hero.getBoundingClientRect();
+    return small() ? { x: r.width * .5, y: r.height - 215 } : { x: r.width * .74, y: r.height * .46 };
+  }
+  function apply() {
+    hero.style.setProperty("--x", pos.x.toFixed(1) + "px");
+    hero.style.setProperty("--y", pos.y.toFixed(1) + "px");
+  }
+  function frame() {
+    const h = home();
+    const goal = target || { x: h.x + Math.cos(t) * (small() ? 50 : 90), y: h.y + Math.sin(t * 1.3) * 40 };
+    t += 0.006;
+    pos.x += (goal.x - pos.x) * 0.08;
+    pos.y += (goal.y - pos.y) * 0.08;
+    apply();
+    raf = requestAnimationFrame(frame);
+  }
+  size(); pos = home(); apply();
+  addEventListener("resize", () => { size(); if (still) { pos = home(); apply(); } });
+  if (!still) {
+    hero.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "mouse") return;
+      const r = hero.getBoundingClientRect();
+      target = { x: e.clientX - r.left, y: e.clientY - r.top };
+    });
+    hero.addEventListener("pointerleave", () => (target = null));
+    new IntersectionObserver(([e]) => {
+      cancelAnimationFrame(raf);
+      if (e.isIntersecting) raf = requestAnimationFrame(frame);
+    }).observe(hero);
   }
 })();
 </script>

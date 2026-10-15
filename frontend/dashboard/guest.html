@@ -157,13 +157,38 @@
   .lightbox-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
   .lightbox-nav { display: flex; justify-content: space-between; padding: .75rem 1rem 1rem; }
 
+  /* Event details from the host */
+  .welcome-note { font: italic 400 1.15rem/1.45 var(--display); margin: -1.5rem 0 1.75rem; white-space: pre-line; }
+  .details { text-align: left; border: 1px solid var(--line); border-radius: 10px; background: var(--white); margin: 0 0 2rem; }
+  .details summary { cursor: pointer; padding: .8rem 1rem; font-weight: 500; list-style: none; display: flex; justify-content: space-between; }
+  .details summary::after { content: "+"; color: var(--gold); }
+  .details[open] summary::after { content: "–"; }
+  .details dl { margin: 0; padding: 0 1rem 1rem; display: grid; gap: .6rem; }
+  .details dt { font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
+  .details dd { margin: 0; white-space: pre-line; }
+  .gallery-details { max-width: 72rem; margin: 0 auto; padding: 0 1rem; }
+  .gallery-details .details { margin-bottom: 1rem; }
+
+  /* Live updates */
+  .live-opt { display: flex; gap: .65rem; text-align: left; font-size: .9rem; margin: -0.75rem 0 1.5rem; padding: .8rem .9rem; border: 1px solid var(--line); border-radius: 10px; background: var(--white); }
+  .live-opt input { margin-top: .3rem; accent-color: var(--ink); flex: none; }
+  .live-opt b { display: block; color: var(--ink); }
+  .live-opt span { color: var(--mist); }
+  .live-bar { max-width: 72rem; margin: 0 auto 1rem; padding: 0 1rem; }
+  .live-bar > div { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; justify-content: space-between; padding: .7rem 1rem; border-radius: 10px; background: var(--white); border: 1px solid var(--line); font-size: .95rem; }
+  .live-dot { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; background: #c8246c; margin-right: .45rem; vertical-align: .05em; box-shadow: 0 0 0 0 rgba(200,36,108,.5); animation: pulse 2s infinite; }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 .5rem rgba(200,36,108,0); } 100% { box-shadow: 0 0 0 0 rgba(200,36,108,0); } }
+  .live-bar button { border: 1px solid var(--ink); background: var(--ink); color: var(--paper); border-radius: 999px; padding: .45rem 1rem; cursor: pointer; font-size: .9rem; }
+  .live-bar button.quiet { background: transparent; color: var(--ink); border-color: var(--line); }
+  .new-pill { position: fixed; left: 50%; top: 1rem; transform: translateX(-50%); z-index: 5; background: var(--ink); color: var(--paper); border: 0; border-radius: 999px; padding: .55rem 1.1rem; box-shadow: 0 6px 18px rgba(46,26,51,.25); cursor: pointer; }
+
   .spinner {
     width: 2rem; height: 2rem; border-radius: 50%;
     border: 2px solid var(--line); border-top-color: var(--gold);
     animation: spin 1s linear infinite; margin: 0 auto 1rem;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } .live-dot { animation: none; } }
 </style>
 </head>
 <body>
@@ -192,6 +217,8 @@
 <main class="screen" id="welcome">
   <h1 class="names" id="names"></h1>
   <p class="date" id="dateLine"></p>
+  <p class="welcome-note" id="welcomeNote" hidden></p>
+  <div data-details></div>
   <div class="cameo" aria-hidden="true">
     <div class="cameo-inner"><span class="cameo-hint">Your photos, found by your face</span></div>
   </div>
@@ -203,6 +230,10 @@
     <label class="consent">
       <input type="checkbox" id="consent">
       <span>I agree to my selfie being compared with faces in the event photos. It is used only to find my photos and is not stored.</span>
+    </label>
+    <label class="live-opt" id="liveOpt" hidden>
+      <input type="checkbox" id="liveCheck">
+      <span><b>Get new photos of me as they're taken</b>The event is live. We keep a face signature (a set of numbers, not your selfie) so new photos of you appear automatically. It's deleted when you turn this off or when the event's photos are deleted.</span>
     </label>
     <button class="btn" type="submit" id="startBtn" disabled>Take my selfie</button>
     <p class="error" id="welcomeError" role="alert"></p>
@@ -250,6 +281,8 @@
       <button type="button" data-filter="all" aria-pressed="false">All photos</button>
     </div>
   </header>
+  <div class="gallery-details" data-details></div>
+  <div class="live-bar" id="liveBar" hidden><div><span id="liveText"></span><button type="button" id="liveBtn"></button></div></div>
   <div class="grid" id="grid"></div>
   <aside class="credit" data-credit hidden>
   <p class="credit-label">Photos by</p>
@@ -263,6 +296,8 @@
     <button class="link" id="signOutBtn" type="button">Sign out on this phone</button>
   </div>
 </section>
+
+<button class="new-pill" type="button" id="newPill" hidden></button>
 
 <!-- Lightbox -->
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Photo" hidden>
@@ -298,6 +333,8 @@
     del: (k) => { try { localStorage.removeItem(k); } catch {} },
   };
 
+  let eventLive = false, wantLive = false;
+
   // ---------- Welcome ----------
   // Event details and the photographer credit both come from the event's public info.
   const fmtDate = (d) => new Date(d + "T12:00:00").toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
@@ -309,10 +346,30 @@
       $("welcomeForm").hidden = true;
       return;
     }
-    $("names").textContent = info.name;
+    const d = info.details || {};
+    $("names").textContent = d.hosts || info.name;
     $("dateLine").textContent = info.startDate === info.endDate ? fmtDate(info.startDate) : `${fmtDate(info.startDate)} to ${fmtDate(info.endDate)}`;
-    document.title = `${info.name}: photos`;
+    if (d.welcome) { $("welcomeNote").textContent = d.welcome; $("welcomeNote").hidden = false; }
+    renderDetails(d);
+    eventLive = !!info.live;
+    $("liveOpt").hidden = !eventLive;
+    document.title = `${d.hosts || info.name}: photos`;
   });
+
+  // Venue, schedule and dress code, as the host wrote them.
+  function renderDetails(d) {
+    const rows = [["Venue", d.venue], ["Schedule", d.schedule], ["Dress code", d.dressCode]].filter(([, v]) => v);
+    if (!rows.length) return;
+    document.querySelectorAll("[data-details]").forEach((slot, i) => {
+      const box = document.createElement("details"); box.className = "details";
+      const sum = document.createElement("summary"); sum.textContent = "Event details";
+      const dl = document.createElement("dl");
+      rows.forEach(([k, v]) => { const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd); });
+      box.append(sum, dl);
+      if (i === 0 && rows.length <= 2) box.open = true;
+      slot.appendChild(box);
+    });
+  }
 
   const urlCode = new URLSearchParams(location.search).get("code");
   $("code").value = urlCode || store.get(CODE_KEY) || "";
@@ -327,6 +384,7 @@
     e.preventDefault();
     $("welcomeError").textContent = "";
     store.set(CODE_KEY, $("code").value.trim());
+    wantLive = eventLive && $("liveCheck").checked;
     openCamera();
   });
 
@@ -396,7 +454,7 @@
       const res = await fetch(`${BASE}/match`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code: store.get(CODE_KEY), image: dataUrl }),
+        body: JSON.stringify({ code: store.get(CODE_KEY), image: dataUrl, live: wantLive, previous: store.get(TOKEN_KEY) || undefined }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw Object.assign(new Error(data.error || "Something went wrong. Try again."), { status: res.status });
@@ -418,16 +476,75 @@
   let visible = [];
   let filter = "mine";
 
-  function renderGallery(data) {
+  function renderGallery(data, quiet) {
     photos = data.photos || [];
+    known = new Set(photos.map((p) => p.id));
+    if ("eventLive" in data) eventLive = !!data.eventLive;
+    liveOn = !!data.liveOn;
+    renderLiveBar();
+    schedulePoll();
     const mine = data.yourPhotoCount || 0;
     $("galleryTitle").textContent = mine ? "Your photos" : "Event photos";
     $("gallerySummary").textContent = mine
-      ? `You're in ${mine} photo${mine === 1 ? "" : "s"}. ${data.publicCount || 0} more are shared with everyone.`
+      ? `You're in ${mine} photo${mine === 1 ? "" : "s"}. ${data.publicCount || 0} more ${data.publicCount === 1 ? "is" : "are"} shared with everyone.`
       : `We didn't find you in any photos yet. Here are the ${data.publicCount || 0} shared with everyone.`;
+    if (quiet) { setFilter(filter); return; }
     setFilter(mine ? "mine" : "all");
     show("gallery");
   }
+
+  // ---------- Live updates ----------
+  let liveOn = false, known = new Set(), pollTimer = null, pending = null;
+  function renderLiveBar() {
+    $("liveBar").hidden = !eventLive;
+    if (!eventLive) return;
+    $("liveText").innerHTML = "";
+    const dot = document.createElement("span"); dot.className = "live-dot"; dot.setAttribute("aria-hidden", "true");
+    $("liveText").append(dot, liveOn ? "Live: new photos of you appear here as they're taken." : "The event is live. Photos keep arriving.");
+    $("liveBtn").textContent = liveOn ? "Stop" : "Get new photos of me";
+    $("liveBtn").className = liveOn ? "quiet" : "";
+  }
+  $("liveBtn").addEventListener("click", async () => {
+    if (!liveOn) {
+      if (!confirm("We'll keep a face signature (a set of numbers, not your selfie) so new photos of you appear automatically. It's deleted when you stop or when the event's photos are deleted. Take a selfie to start?")) return;
+      wantLive = true;
+      return openCamera();
+    }
+    $("liveBtn").disabled = true;
+    try {
+      const res = await fetch(`${BASE}/live-off`, { method: "POST", headers: { authorization: `Bearer ${store.get(TOKEN_KEY)}` } });
+      if (res.ok) { liveOn = false; renderLiveBar(); }
+    } catch {} finally { $("liveBtn").disabled = false; }
+  });
+  // While the event is live, check for new photos every 30 seconds (only while this page is on screen).
+  function schedulePoll() {
+    clearTimeout(pollTimer);
+    if (!eventLive) return;
+    pollTimer = setTimeout(checkNew, 30000);
+  }
+  async function checkNew() {
+    if (document.hidden || $("gallery").hidden || !store.get(TOKEN_KEY)) return schedulePoll();
+    try {
+      const res = await fetch(`${BASE}/gallery`, { headers: { authorization: `Bearer ${store.get(TOKEN_KEY)}` } });
+      if (res.ok) {
+        const data = await res.json();
+        const fresh = (data.photos || []).filter((p) => !known.has(p.id));
+        if (fresh.length) {
+          pending = data;
+          const yours = fresh.filter((p) => p.yours).length;
+          $("newPill").textContent = yours ? `${yours} new photo${yours === 1 ? "" : "s"} of you · Show` : `${fresh.length} new photo${fresh.length === 1 ? "" : "s"} · Show`;
+          $("newPill").hidden = false;
+        }
+        if ("eventLive" in data && !data.eventLive) { eventLive = false; renderLiveBar(); }
+      }
+    } catch {}
+    schedulePoll();
+  }
+  $("newPill").addEventListener("click", () => {
+    $("newPill").hidden = true;
+    if (pending) { const d = pending; pending = null; renderGallery(d, true); window.scrollTo(0, 0); }
+  });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("gallery").hidden && eventLive) { clearTimeout(pollTimer); checkNew(); } });
 
   function setFilter(f) {
     filter = f;
@@ -439,7 +556,8 @@
       const p = document.createElement("p");
       p.className = "empty";
       p.textContent = f === "mine"
-        ? "No photos of you yet. More photos are added after the event, so check back, or take another selfie in brighter light."
+        ? (liveOn ? "No photos of you yet. Keep this page open: new photos of you appear here as they're taken."
+                  : "No photos of you yet. More photos are added during and after the event, so check back, or take another selfie in brighter light.")
         : "Photos will appear here once the photographer delivers them.";
       grid.appendChild(p);
       return;
@@ -460,7 +578,12 @@
   document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => setFilter(b.dataset.filter)));
 
   $("retakeBtn").addEventListener("click", openCamera);
-  $("signOutBtn").addEventListener("click", () => { store.del(TOKEN_KEY); photos = []; show("welcome"); });
+  $("retakeBtn").addEventListener("click", () => { wantLive = liveOn; });
+  $("signOutBtn").addEventListener("click", async () => {
+    const token = store.get(TOKEN_KEY);
+    if (liveOn && token) { try { await fetch(`${BASE}/live-off`, { method: "POST", headers: { authorization: `Bearer ${token}` } }); } catch {} }
+    store.del(TOKEN_KEY); photos = []; liveOn = false; clearTimeout(pollTimer); $("newPill").hidden = true; show("welcome");
+  });
 
   // ---------- Photographer credit ----------
   (async () => {

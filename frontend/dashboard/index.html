@@ -70,6 +70,7 @@
   @keyframes ring { 0%, 34% { opacity: 0; } 42%, 86% { opacity: 1; } 94%, 100% { opacity: 0; } }
   @keyframes ping { 0%, 14% { opacity: 0; transform: scale(.9); } 20% { opacity: .9; } 32% { opacity: 0; transform: scale(1.35); } 100% { opacity: 0; } }
   @media (prefers-reduced-motion: reduce) {
+    .feed i.new, .toast-demo, .live-badge i { animation: none; }
     .tile.mine .veil { animation: none; opacity: 0; }
     .tile.mine::after { animation: none; opacity: 1; }
     .selfie::after { animation: none; }
@@ -132,6 +133,62 @@
   .plan .btn { margin-top: auto; }
   .offer { margin-top: 20px; padding: 16px 20px; border-radius: 12px; background: var(--accent-soft); color: var(--ink); font-size: 16px; }
 
+  /* Why us: the five advantages */
+  .adv-list { display: grid; gap: 18px; counter-reset: a; }
+  .adv { counter-increment: a; display: grid; grid-template-columns: 64px 1fr; gap: 6px 22px; padding: 30px 0; border-top: 1px solid var(--line); }
+  .adv::before { content: "0" counter(a); font: 800 34px/1 var(--display); letter-spacing: -.03em; color: var(--accent); grid-row: span 2; }
+  .adv h3 { font: 700 clamp(22px, 2.6vw, 28px)/1.2 var(--display); letter-spacing: -.02em; margin: 0; }
+  .adv > div > p { margin: 8px 0 0; color: var(--muted); max-width: 46em; }
+  .adv .vs a { color: var(--accent); font-weight: 600; text-decoration: none; }
+  .adv .vs { margin-top: 12px; font-size: 15px; color: var(--ink); background: var(--paper); border-left: 3px solid var(--gold); padding: 8px 12px; border-radius: 0 8px 8px 0; display: inline-block; }
+  .adv .body-extra { grid-column: 2; margin-top: 20px; }
+  .sort-demo { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .sd { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--white); font-size: 14px; }
+  .sd b { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; margin-bottom: 6px; }
+  .sd b.pub { background: #e3f0e8; color: #2f6b4a; }
+  .sd b.prv { background: #eef0f4; color: var(--ink); }
+  .sd span { color: var(--muted); display: block; }
+
+  /* Live */
+  .live-grid { display: grid; grid-template-columns: .95fr 1.05fr; gap: 48px; align-items: center; }
+  .live-feed { background: var(--navy); border-radius: 22px; padding: 22px; color: #e8ebf2; }
+  .live-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; font-size: 14px; }
+  .live-badge { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: #fff; }
+  .live-badge i { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 rgba(200,36,108,.6); animation: pulse 2s infinite; }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 9px rgba(200,36,108,0); } 100% { box-shadow: 0 0 0 0 rgba(200,36,108,0); } }
+  .feed { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .feed i { aspect-ratio: 1; border-radius: 7px; display: block; background: #26365a; }
+  .feed i.new { animation: arrive 6s infinite; }
+  .feed i.new.mine { box-shadow: inset 0 0 0 3px var(--accent); }
+  .feed i:nth-child(3n) { background: #34466e; } .feed i:nth-child(4n+1) { background: #2c3d62; }
+  @keyframes arrive { 0%, 20% { opacity: 0; transform: scale(.8); } 30%, 100% { opacity: 1; transform: none; } }
+  .toast-demo { margin-top: 14px; background: #fff; color: var(--ink); border-radius: 999px; padding: 9px 16px; font-weight: 600; font-size: 14px; display: inline-block; animation: arrive 6s infinite; }
+  .tick-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 18px; }
+  .tick-list li { display: grid; grid-template-columns: 30px 1fr; gap: 12px; }
+  .tick-list li::before { content: ""; width: 26px; height: 26px; border-radius: 8px; background: var(--accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c8246c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center/15px no-repeat; }
+  .tick-list strong { display: block; font: 700 18px/1.3 var(--display); }
+  .tick-list span { color: var(--muted); font-size: 16px; }
+
+  /* Event owners */
+  .owner-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; }
+  .owner-grid > *, .live-grid > *, .adv > * { min-width: 0; }
+  .dash { background: var(--white); border: 1px solid var(--line); border-radius: 18px; padding: 20px; box-shadow: 0 24px 50px -32px rgba(15,26,46,.35); }
+  .dash-head { font: 700 20px/1.2 var(--display); margin: 0 0 2px; }
+  .dash-sub { font-size: 13.5px; color: var(--muted); margin: 0 0 14px; }
+  .dash-tabs { display: flex; gap: 14px; border-bottom: 1px solid var(--line); font-size: 13.5px; color: var(--muted); margin-bottom: 14px; overflow: hidden; white-space: nowrap; }
+  .dash-tabs span { padding-bottom: 8px; }
+  .dash-tabs .on { color: var(--ink); border-bottom: 2px solid var(--accent); font-weight: 600; }
+  .dash-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+  .dash-row:last-child { border-bottom: 0; }
+  .dash-row em { font-style: normal; color: var(--muted); font-size: 13.5px; }
+  .sw { width: 34px; height: 20px; border-radius: 999px; background: var(--accent); position: relative; flex: none; }
+  .sw::after { content: ""; position: absolute; right: 3px; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
+  .chip { font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #fdf0d9; color: #8a5a00; }
+  .two-ways { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 26px; }
+  .way { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .way b { display: block; font: 700 17px/1.3 var(--display); margin-bottom: 4px; }
+  .way span { color: var(--muted); font-size: 15px; }
+
   /* Final CTA */
   .final { background: var(--navy); color: #fff; border-radius: 24px; padding: 56px 40px; text-align: center; }
   .final h2 { font: 800 clamp(30px, 4vw, 42px)/1.1 var(--display); letter-spacing: -.03em; margin: 0 0 12px; }
@@ -142,6 +199,8 @@
   footer { padding: 36px 0 48px; color: var(--muted); font-size: 14.5px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
 
   @media (max-width: 900px) {
+    .live-grid, .owner-grid { grid-template-columns: 1fr; gap: 32px; }
+    .owner-grid .dash { order: 2; }
     .hero { grid-template-columns: 1fr; padding-top: 24px; gap: 40px; }
     .steps, .compare, .plans { grid-template-columns: 1fr; }
     .privacy, .features { grid-template-columns: 1fr; }
@@ -149,6 +208,10 @@
   }
   @media (max-width: 480px) {
     body { font-size: 16px; }
+    .adv { grid-template-columns: 1fr; }
+    .adv::before { grid-row: auto; font-size: 26px; }
+    .adv .body-extra { grid-column: 1; }
+    .two-ways { grid-template-columns: 1fr; }
     .nav .btn-ghost { display: none; }
     .final { padding: 40px 20px; }
     section.band { padding: 60px 0; }
@@ -160,8 +223,9 @@
 <header class="wrap nav">
   <a class="logo" href="#top" aria-label="EventPhotos home"><span class="logo-mark" aria-hidden="true"></span>EventPhotos</a>
   <nav class="nav-links" aria-label="Main">
-    <a href="#how">How it works</a>
-    <a href="#privacy">Privacy</a>
+    <a href="#why">Why us</a>
+    <a href="#live">Live photos</a>
+    <a href="#hosts">For hosts</a>
     <a href="#photographers">For photographers</a>
     <a href="#pricing">Pricing</a>
     <a class="btn btn-ghost" href="app.html" data-auth="signin">Sign in</a>
@@ -174,12 +238,12 @@
   <div class="wrap hero">
     <div>
       <h1>Every guest gets their photos.<span class="line2">Nobody gets everyone else's.</span></h1>
-      <p class="lede">Guests take a selfie and instantly see the shared moments plus every photo they're in. Our AI decides, photo by photo, what everyone can see and what stays with the people in it.</p>
+      <p class="lede">Guests take a selfie and see the shared moments plus every photo they're in, even while the party is still going. Our AI decides, photo by photo, what everyone can see and what stays with the people in it.</p>
       <div class="hero-ctas">
         <a class="btn btn-primary" href="app.html#signup" data-auth="signup">Start your first event</a>
         <a class="btn btn-ghost" href="app.html" data-auth="signin">Sign in</a>
       </div>
-      <p class="hero-note">For photographers, planners and venues. No app for guests to install.</p>
+      <p class="hero-note">For photographers, planners, venues and anyone hosting their own event. No app for guests to install.</p>
     </div>
 
     <figure class="phone" aria-label="Example: a guest's gallery after their selfie. Shared photos are visible, private photos unlock only if the guest is in them.">
@@ -195,7 +259,7 @@
           <div class="tile"><svg viewBox="0 0 60 60"><rect width="60" height="60" fill="#cfd8ea"/><circle cx="22" cy="26" r="7" fill="#5b4033"/><circle cx="40" cy="27" r="7" fill="#7a5442"/><rect x="12" y="35" width="20" height="25" rx="8" fill="#2d6a8a"/><rect x="30" y="36" width="20" height="24" rx="8" fill="#e0a526"/></svg><div class="veil"><svg viewBox="0 0 24 24" fill="none" stroke="#5d6577" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div></div>
           <!-- private, yours -->
           <div class="tile mine"><svg viewBox="0 0 60 60"><rect width="60" height="60" fill="#e8d5df"/><circle cx="30" cy="24" r="8" fill="#8a5a44"/><rect x="19" y="33" width="22" height="27" rx="9" fill="#c8246c"/></svg><div class="veil"><svg viewBox="0 0 24 24" fill="none" stroke="#5d6577" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div></div>
-          <!-- shared: the couple -->
+          <!-- shared: the hosts -->
           <div class="tile"><svg viewBox="0 0 60 60"><rect width="60" height="60" fill="#d9e4dc"/><circle cx="23" cy="24" r="7" fill="#5b4033"/><circle cx="38" cy="23" r="7" fill="#6e4a3a"/><path d="M14 60V40a9 9 0 0 1 18 0v20z" fill="#fff"/><path d="M29 60V39a9 9 0 0 1 18 0v21z" fill="#0f1a2e"/><path d="M16 18l7-6 7 6z" fill="#e0a526"/></svg></div>
           <!-- private, yours -->
           <div class="tile mine"><svg viewBox="0 0 60 60"><rect width="60" height="60" fill="#f6dccb"/><circle cx="20" cy="27" r="7" fill="#8a5a44"/><circle cx="41" cy="25" r="7" fill="#4b3329"/><rect x="10" y="35" width="20" height="25" rx="8" fill="#c8246c"/><rect x="31" y="33" width="20" height="27" rx="8" fill="#2d6a8a"/></svg><div class="veil"><svg viewBox="0 0 24 24" fill="none" stroke="#5d6577" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div></div>
@@ -219,50 +283,137 @@
       <h2 class="title">From the camera to every guest's phone, sorted for you</h2>
       <p class="intro">No tagging, no sorting thousands of photos by hand, no apps for guests to download.</p>
       <ol class="steps">
-        <li><h3>Upload the event</h3><p>Drag in the whole folder from your laptop. Sort photos into shared and private folders yourself, or leave them for the AI.</p></li>
-        <li><h3>AI sorts every photo</h3><p>Using rules you set, it shares decor, portraits of the couple and big group shots, and keeps guests' candids private. Anything it isn't sure about stays private.</p></li>
+        <li><h3>Upload as you shoot, or after</h3><p>Send photos from your laptop or phone during the event, or drag in the whole folder afterwards. Sort them yourself, or leave them for the AI.</p></li>
+        <li><h3>AI sorts every photo</h3><p>Using rules you set, it shares decor, portraits of the hosts and big group shots, and keeps guests' candids private. Anything it isn't sure about stays private.</p></li>
         <li><h3>Guests scan and take a selfie</h3><p>A QR code on each table opens their gallery: everything shared, plus every photo they're in. Nobody else's.</p></li>
       </ol>
     </div>
   </section>
 
-  <!-- Privacy -->
-  <section class="band" id="privacy">
+  <!-- Why us: the five advantages -->
+  <section class="band" id="why">
     <div class="wrap">
-      <p class="kicker">Private by default</p>
-      <h2 class="title">Most galleries make you choose. We don't.</h2>
-      <p class="intro">Other photo-sharing tools either show every guest every photo, or show each guest only their own. Weddings need both, decided photo by photo.</p>
-      <div class="compare">
-        <div class="opt">
-          <div class="mini" aria-hidden="true"><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i></div>
-          <h3>Everyone sees everything</h3>
-          <p>Face search only filters the gallery. Every candid is one scroll away for every guest.</p>
-          <span class="verdict">Easy, but nothing is private</span>
+      <p class="kicker">Why EventPhotos</p>
+      <h2 class="title">Five reasons events run on EventPhotos</h2>
+      <p class="intro">From the first QR code to the last download: sorted, live, secure and managed in one place.</p>
+
+      <div class="adv-list">
+        <div class="adv">
+          <div>
+            <h3>AI decides what's shared, photo by photo</h3>
+            <p>Every photo is checked against the event's own rules. Decor, portraits of the people you're celebrating and the big moments go to everyone; guests' candids stay with the people in them. Add a few photos of the hosts and every photo with them is shared automatically. Anything the AI isn't sure about stays private, and you can flip any decision.</p>
+            <p class="vs">Most tools make privacy one switch for the whole gallery, or leave you tagging 3,000 photos by hand.</p>
+          </div>
+          <div class="body-extra compare">
+            <div class="opt">
+              <div class="mini" aria-hidden="true"><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i><i class="m-open"></i></div>
+              <h3>Everyone sees everything</h3>
+              <p>Face search only filters the gallery. Every candid is one scroll away.</p>
+              <span class="verdict">Easy, but nothing is private</span>
+            </div>
+            <div class="opt">
+              <div class="mini" aria-hidden="true"><i class="m-lock"></i><i class="m-mine"></i><i class="m-lock"></i><i class="m-lock"></i><i class="m-lock"></i><i class="m-lock"></i><i class="m-mine"></i><i class="m-lock"></i></div>
+              <h3>Only your own</h3>
+              <p>Guests miss the venue, the hosts and the big moments.</p>
+              <span class="verdict">Private, but guests miss the day</span>
+            </div>
+            <div class="opt us">
+              <div class="mini" aria-hidden="true"><i class="m-open"></i><i class="m-mine"></i><i class="m-lock"></i><i class="m-open"></i><i class="m-open"></i><i class="m-lock"></i><i class="m-mine"></i><i class="m-open"></i></div>
+              <h3>Shared moments plus your own</h3>
+              <p>The AI shares what everyone should see and keeps candids for the people in them.</p>
+              <span class="verdict">EventPhotos</span>
+            </div>
+          </div>
         </div>
-        <div class="opt">
-          <div class="mini" aria-hidden="true"><i class="m-lock"></i><i class="m-mine"></i><i class="m-lock"></i><i class="m-lock"></i><i class="m-lock"></i><i class="m-lock"></i><i class="m-mine"></i><i class="m-lock"></i></div>
-          <h3>Only your own</h3>
-          <p>Guests see just the photos they're in, so they miss the venue, the couple and the big moments.</p>
-          <span class="verdict">Private, but guests miss the day</span>
+
+        <div class="adv">
+          <div>
+            <h3>Create your event dashboard in minutes</h3>
+            <p>Name the event, set the dates, and you get a guest link, a QR code for the tables and an upload link for the photographer. Add the names, venue, schedule, dress code or aso-ebi colours and a welcome note, and guests see it all on the same page where they find their photos. Photographers and planners set it up for their clients, or hosts do it themselves.</p>
+            <p class="vs"><a href="#hosts">How hosts get their dashboard →</a></p>
+          </div>
         </div>
-        <div class="opt us">
-          <div class="mini" aria-hidden="true"><i class="m-open"></i><i class="m-mine"></i><i class="m-lock"></i><i class="m-open"></i><i class="m-open"></i><i class="m-lock"></i><i class="m-mine"></i><i class="m-open"></i></div>
-          <h3>Shared moments plus your own</h3>
-          <p>AI shares what everyone should see and keeps candids for the people in them. You review and change anything.</p>
-          <span class="verdict">EventPhotos</span>
+
+        <div class="adv">
+          <div>
+            <h3>Live photo sharing to guests</h3>
+            <p>Guests don't wait days or weeks. The photographer uploads as they shoot, and guests see the shared moments and their own photos during the reception. Guests who opt in get new photos of themselves automatically, without taking another selfie.</p>
+            <p class="vs"><a href="#live">See live photos →</a></p>
+          </div>
+        </div>
+
+        <div class="adv" id="privacy">
+          <div>
+            <h3>Secure event hosting</h3>
+            <p>Built by an information security professional for the events where privacy matters most. Guests agree before their selfie is compared, and selfies are never stored. Codes are kept only in scrambled form, each event's photos and face data are kept separate from every other event, and everything is deleted on a schedule or with one click. Any link can be turned off at once.</p>
+            <p class="vs">Ready for clients who ask where their guests' faces go.</p>
+          </div>
+        </div>
+
+        <div class="adv">
+          <div>
+            <h3>Event management and dashboard</h3>
+            <p>One place to run every event: a review queue for the AI's decisions, approval before guests see anything, host recognition, sorting rules, new links if one leaks, and stats on who found and downloaded their photos. Invite the host to their own view of the event, and put your studio's name, logo and booking link on every guest page.</p>
+            <p class="vs"><a href="#photographers">What photographers get →</a></p>
+          </div>
         </div>
       </div>
+    </div>
+  </section>
 
-      <div class="privacy">
-        <ul class="checks">
-          <li><div><strong>Uncertain means private</strong><span>The AI only shares a photo when it's confident, and you can change any decision.</span></div></li>
-          <li><div><strong>The couple, recognised</strong><span>Add a few photos of the hosts and every photo with them is shared automatically.</span></div></li>
-          <li><div><strong>Face data kept per event, then deleted</strong><span>Each event's face data is stored on its own and deleted on a schedule, or with one click.</span></div></li>
-          <li><div><strong>Consent before every selfie</strong><span>Guests agree before their selfie is compared. Selfies are compared, never stored.</span></div></li>
+  <!-- Live photos -->
+  <section class="band alt" id="live">
+    <div class="wrap live-grid">
+      <div>
+        <p class="kicker">New: live photos</p>
+        <h2 class="title">Photos while the party is still going</h2>
+        <p class="intro" style="margin-bottom:28px">Turn on live mode and guests don't wait days for their photos. They see them during the reception, while everyone is still there to share them.</p>
+        <ul class="tick-list">
+          <li><div><strong>Upload as you shoot</strong><span>The photographer sends photos from a laptop or phone through the same upload link, and each one is sorted in seconds.</span></div></li>
+          <li><div><strong>New photos of you, without another selfie</strong><span>Guests can choose to be found in new photos automatically. We keep a face signature, never the selfie, and delete it when they stop or the event ends.</span></div></li>
+          <li><div><strong>Galleries refresh by themselves</strong><span>Guests see "3 new photos of you" and tap to look.</span></div></li>
+          <li><div><strong>Approve first, if you prefer</strong><span>Hold new photos until the host or the photographer approves them. Guests see nothing until then.</span></div></li>
         </ul>
-        <div class="quote">
-          <p>"Built by an information security professional, for the events where privacy matters most."</p>
-          <small>Guest codes are stored scrambled, every event is isolated, and links can be turned off instantly.</small>
+      </div>
+      <div class="live-feed" aria-hidden="true">
+        <div class="live-top"><span class="live-badge"><i></i>Live · Ada &amp; Tobi</span><span>Reception</span></div>
+        <div class="feed">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i class="new mine"></i><i class="new"></i><i class="new mine"></i><i class="new"></i>
+        </div>
+        <span class="toast-demo">2 new photos of you · Show</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Event owners -->
+  <section class="band" id="hosts">
+    <div class="wrap owner-grid">
+      <div class="dash" aria-hidden="true">
+        <p class="dash-head">Ada &amp; Tobi</p>
+        <p class="dash-sub">19 to 21 Nov · Eko Hotel, Victoria Island</p>
+        <div class="dash-tabs"><span>Share</span><span class="on">Photos</span><span>Event page</span><span>Live &amp; approval</span><span>Hosts</span></div>
+        <div class="dash-row"><span>Waiting for your approval</span><span class="chip">24 photos</span></div>
+        <div class="dash-row"><span>Live photos during the event</span><span class="sw"></span></div>
+        <div class="dash-row"><span>Approve before guests see them</span><span class="sw"></span></div>
+        <div class="dash-row"><span>Guests who found their photos</span><em>312 of 400</em></div>
+      </div>
+      <div>
+        <p class="kicker">For event hosts</p>
+        <h2 class="title">Your own event dashboard</h2>
+        <p class="intro" style="margin-bottom:24px">The people you're celebrating get a say in what their guests see, without waiting on anyone.</p>
+        <ul class="tick-list">
+          <li><div><strong>Your event page</strong><span>Names, venue, schedule, dress code or aso-ebi colours and a welcome note, on the same link guests use to find their photos.</span></div></li>
+          <li><div><strong>Approve photos before guests see them</strong><span>Review every photo, share or hide any of them, and ask the AI to look again.</span></div></li>
+          <li><div><strong>Recognised in your own photos</strong><span>Add the faces of the people being celebrated so every photo of them is shared with everyone.</span></div></li>
+          <li><div><strong>See who found their photos</strong><span>Selfies, downloads and guests on live updates, as they happen.</span></div></li>
+        </ul>
+        <div class="two-ways">
+          <div class="way"><b>Invited by your photographer</b><span>They add your email; you sign up and the event is already there.</span></div>
+          <div class="way"><b>Or set it up yourself</b><span>Create your event, then send the upload link to your photographer.</span></div>
+        </div>
+        <div class="hero-ctas" style="margin-top:24px">
+          <a class="btn btn-primary" href="app.html#signup" data-auth="signup">Set up your event</a>
         </div>
       </div>
     </div>
@@ -276,11 +427,11 @@
       <p class="intro">Hundreds of guests open their photos. Every one of them sees your name, your logo and a button to book you.</p>
       <div class="features">
         <div class="feature"><h3>Your brand on every gallery</h3><p>"Photos by" with your logo, booking link and Instagram on every guest page.</p></div>
-        <div class="feature"><h3>Delivery in minutes, not weeks</h3><p>Upload the night of the event and guests can find their photos the same evening.</p></div>
+        <div class="feature"><h3>Delivery during the event, not weeks later</h3><p>Turn on live photos and guests find themselves while the party is still going.</p></div>
         <div class="feature"><h3>A review queue, not a sorting job</h3><p>Check the AI's calls it wasn't sure about, flip anything in one tap, and re-sort with new rules.</p></div>
         <div class="feature"><h3>Proof of what you delivered</h3><p>See how many guests found their photos, opened them and downloaded them.</p></div>
         <div class="feature"><h3>One QR code per event</h3><p>Print it on table cards. Guests scan, take a selfie, and they're in.</p></div>
-        <div class="feature"><h3>Built for big celebrations</h3><p>Multi-day weddings, hundreds of guests, aso-ebi group shots, and guests on mobile data.</p></div>
+        <div class="feature"><h3>A dashboard for your clients</h3><p>Invite your client, the event host, by email or WhatsApp. They approve photos and edit their event page; you keep control of uploads and deletion.</p></div>
       </div>
     </div>
   </section>
@@ -290,18 +441,18 @@
     <div class="wrap">
       <p class="kicker">Pricing</p>
       <h2 class="title">Pay per event, or go monthly when you're busy</h2>
-      <p class="intro">Every plan includes AI sorting, host recognition, your branding and the review queue.</p>
+      <p class="intro">Every plan includes AI sorting, host recognition, live photos, the host's dashboard and the review queue.</p>
       <div class="plans">
         <div class="plan">
-          <h3>Single event</h3><p class="for">One wedding or celebration</p>
+          <h3>Single event</h3><p class="for">One wedding or celebration, for photographers or hosts</p>
           <p class="price">$69<small> per event</small></p>
-          <ul><li>Up to 3,000 photos</li><li>Guest selfie access and QR code</li><li>Photos kept for 90 days</li></ul>
+          <ul><li>Up to 3,000 photos</li><li>Guest selfie access and QR code</li><li>Live photos and approval</li><li>Photos kept for 90 days</li></ul>
           <a class="btn btn-ghost" href="app.html#signup" data-auth="signup">Start an event</a>
         </div>
         <div class="plan featured">
           <h3>Studio</h3><p class="for">Photographers with regular events</p>
           <p class="price">$99<small> per month</small></p>
-          <ul><li>Up to 6 events a month</li><li>Up to 3,000 photos per event</li><li>Photos kept for 6 months</li></ul>
+          <ul><li>Up to 6 events a month</li><li>Up to 3,000 photos per event</li><li>Your branding on every guest page</li><li>Photos kept for 6 months</li></ul>
           <a class="btn btn-dark" href="app.html#signup" data-auth="signup">Start free trial</a>
         </div>
         <div class="plan">
@@ -319,7 +470,7 @@
   <section class="wrap" style="padding-bottom:24px">
     <div class="final">
       <h2>Give every guest their photos tonight</h2>
-      <p>Create your studio, set up an event, and send the upload link to your photographer. It takes about five minutes.</p>
+      <p>Set up an event, print the QR code, and turn on live photos. It takes about five minutes, for photographers and hosts alike.</p>
       <div class="hero-ctas" style="justify-content:center">
         <a class="btn btn-primary" href="app.html#signup" data-auth="signup">Get started</a>
         <a class="btn btn-ghost" href="app.html" data-auth="signin">Sign in</a>

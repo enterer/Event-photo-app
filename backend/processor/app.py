@@ -6,8 +6,10 @@ For each file:
   2. decide visibility: the photographer's folder wins; otherwise, if every enrolled host
      (e.g. the couple) is recognised it's public; otherwise AI applies the event's rules;
      any doubt or any AI failure -> private
-  3. index faces of private photos into the event's collection ev-<eventId>
-  4. write events/<eventId>/<visibility>/<thumb|web|original>/<photoId>.jpg and a photo record
+  3. index faces of private photos into the event's collection ev-<eventId>, and, when the event
+     is live, add the photo to the galleries of guests who turned on live updates
+  4. write events/<eventId>/<visibility>/<thumb|web|original>/<photoId>.jpg and a photo record;
+     if the event requires approval the photo goes to "held" instead, with its decision kept as "intended"
   5. delete the incoming file
 Ported from the wedding app's processor; everything is scoped by event.
 """
@@ -30,6 +32,8 @@ TABLE = os.environ["TABLE"]
 MODEL_ID = os.environ["MODEL_ID"]
 PUBLIC_CONFIDENCE = float(os.environ.get("PUBLIC_CONFIDENCE", "0.8"))
 HOST_MATCH_THRESHOLD = 90
+LIVE_MATCH_THRESHOLD = 95
+VISIBILITIES = ("public", "private", "held")
 MAX_FACES_CHECKED = 15
 
 retry = Config(retries={"max_attempts": 10, "mode": "adaptive"})
@@ -40,8 +44,8 @@ table = boto3.resource("dynamodb").Table(TABLE)
 
 DEFAULT_RULES = """PUBLIC (every guest can see):
 - Venue, decor, flowers, cake, table settings and other details
-- Any photo with the main couple or hosts together (applied automatically once their faces are added)
-- Portraits of the couple or hosts
+- Any photo with the hosts together, such as a couple or a birthday person (applied automatically once their faces are added)
+- Portraits of the hosts
 - Wide shots of the ceremony, entrances, first dance or speeches where guests are part of the crowd
 - Large posed group photos that everyone lined up for
 
@@ -49,7 +53,7 @@ PRIVATE (only people in the photo can see):
 - Candid close-ups of guests
 - Small groups of guests, table shots, people eating or drinking
 - Dancing and party candids that focus on particular guests
-- Children without the couple or hosts
+- Children without the hosts
 - Anything unflattering, awkward, or that a guest might not want shared widely
 - Anything you are unsure about"""
 
@@ -83,7 +87,7 @@ def process(bucket, key):
     data = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
     pid = photo_id(original_name, data)
     base = f"events/{event_id}"
-    if any(exists(bucket, f"{base}/{v}/thumb/{pid}.jpg") for v in ("public", "private")):
+    if any(exists(bucket, f"{base}/{v}/thumb/{pid}.jpg") for v in VISIBILITIES):
         print(f"{key}: already published as {pid}, removing duplicate")
         s3.delete_object(Bucket=bucket, Key=key)
         return
@@ -101,19 +105,24 @@ def process(bucket, key):
         decision = decide(event_id, ev, img)
     else:
         decision = {"visibility": folder, "confidence": 1.0, "reason": "Sorted by photographer", "source": "photographer"}
-    vis = decision["visibility"]
+    intended = decision["visibility"]
+    vis = "held" if ev.get("requireApproval") else intended
 
-    face_ids = index_faces(event_id, web, pid) if vis == "private" else []
+    face_ids = index_faces(event_id, web, pid) if intended == "private" else []
     for size, body in (("original", original), ("web", web), ("thumb", thumb)):  # thumb last = published
         s3.put_object(Bucket=bucket, Key=f"{base}/{vis}/{size}/{pid}.jpg", Body=body, ContentType="image/jpeg")
-    table.put_item(Item={
+    record = {
         "pk": f"EVENT#{event_id}", "sk": f"PHOTO#{pid}", "photoId": pid, "visibility": vis,
         "source": decision["source"], "reason": decision["reason"][:500],
         "confidence": str(round(decision["confidence"], 2)), "uploader": uploader,
         "fileName": original_name, "faceIds": face_ids, "createdAt": int(time.time()),
-    })
+    }
+    if vis == "held":
+        record["intended"] = intended
+    table.put_item(Item=record)
+    match_live(event_id, ev, pid, face_ids)
     s3.delete_object(Bucket=bucket, Key=key)
-    print(f"{key}: published {vis} {pid} ({decision['source']}: {decision['reason']}), {len(face_ids)} face(s)")
+    print(f"{key}: published {vis}{'/' + intended if vis == 'held' else ''} {pid} ({decision['source']}: {decision['reason']}), {len(face_ids)} face(s)")
 
 
 def decide(event_id, ev, img):
@@ -130,28 +139,42 @@ def resort(bucket, org_id, event_id, pid):
         return
     ev = table.get_item(Key={"pk": f"ORG#{org_id}", "sk": f"EVENT#{event_id}"}).get("Item")
     base = f"events/{event_id}"
-    current = next((v for v in ("public", "private") if exists(bucket, f"{base}/{v}/thumb/{pid}.jpg")), None)
+    current = next((v for v in VISIBILITIES if exists(bucket, f"{base}/{v}/thumb/{pid}.jpg")), None)
     if not ev or not current:
         print(f"resort {event_id}/{pid}: not found")
         return
     web = s3.get_object(Bucket=bucket, Key=f"{base}/{current}/web/{pid}.jpg")["Body"].read()
     decision = decide(event_id, ev, Image.open(io.BytesIO(web)).convert("RGB"))
     target = decision["visibility"]
+    key = {"pk": f"EVENT#{event_id}", "sk": f"PHOTO#{pid}"}
+    rec = table.get_item(Key=key).get("Item") or {**key, "photoId": pid, "createdAt": int(time.time())}
+    if current == "held":  # still waiting for approval: only the planned visibility changes
+        if decision["reason"].startswith("AI sorting unavailable"):
+            target = rec.get("intended", "private")
+            decision["reason"] = f"AI sorting unavailable, left {target}"
+        if target == "private" and not rec.get("faceIds"):
+            rec["faceIds"] = index_faces(event_id, web, pid)
+            match_live(event_id, ev, pid, rec["faceIds"])
+        elif target == "public" and rec.get("faceIds"):
+            delete_faces(event_id, list(rec["faceIds"]))
+            rec["faceIds"] = []
+        rec.update(intended=target, source=decision["source"], reason=decision["reason"][:500],
+                   confidence=str(round(decision["confidence"], 2)), photoId=pid, visibility="held")
+        table.put_item(Item=rec)
+        print(f"resort {event_id}/{pid}: held, now planned {target}")
+        return
     if decision["reason"].startswith("AI sorting unavailable"):
         target, decision["reason"] = current, f"AI sorting unavailable, left {current}"
 
-    key = {"pk": f"EVENT#{event_id}", "sk": f"PHOTO#{pid}"}
-    rec = table.get_item(Key=key).get("Item") or {**key, "photoId": pid, "createdAt": int(time.time())}
     if target != current:
         for size in ("original", "web", "thumb"):
             s3.copy_object(Bucket=bucket, CopySource={"Bucket": bucket, "Key": f"{base}/{current}/{size}/{pid}.jpg"},
                            Key=f"{base}/{target}/{size}/{pid}.jpg", ContentType="image/jpeg", MetadataDirective="REPLACE")
         if target == "private":
             rec["faceIds"] = index_faces(event_id, web, pid)
+            match_live(event_id, ev, pid, rec["faceIds"])
         else:
-            ids = list(rec.get("faceIds") or [])
-            for i in range(0, len(ids), 4096):
-                rekognition.delete_faces(CollectionId=f"ev-{event_id}", FaceIds=ids[i:i + 4096])
+            delete_faces(event_id, list(rec.get("faceIds") or []))
             rec["faceIds"] = []
         for size in ("original", "web", "thumb"):
             s3.delete_object(Bucket=bucket, Key=f"{base}/{current}/{size}/{pid}.jpg")
@@ -177,16 +200,17 @@ def delete_all(bucket, org_id, event_id, include_hosts):
         except rekognition.exceptions.ResourceNotFoundException:
             pass
     _hosts_cache.pop(event_id, None)
-    kwargs = {"KeyConditionExpression": Key("pk").eq(f"EVENT#{event_id}") & Key("sk").begins_with("PHOTO#"),
-              "ProjectionExpression": "pk, sk"}
     with table.batch_writer() as batch:
-        while True:
-            page = table.query(**kwargs)
-            for item in page.get("Items", []):
-                batch.delete_item(Key={"pk": item["pk"], "sk": item["sk"]})
-            if "LastEvaluatedKey" not in page:
-                break
-            kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]
+        for prefix in ("PHOTO#", "LIVE#"):  # live guests' signatures went with the collection
+            kwargs = {"KeyConditionExpression": Key("pk").eq(f"EVENT#{event_id}") & Key("sk").begins_with(prefix),
+                      "ProjectionExpression": "pk, sk"}
+            while True:
+                page = table.query(**kwargs)
+                for item in page.get("Items", []):
+                    batch.delete_item(Key={"pk": item["pk"], "sk": item["sk"]})
+                if "LastEvaluatedKey" not in page:
+                    break
+                kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]
     print(f"delete_all {event_id}: removed {removed} files (hosts too: {include_hosts})")
 
 
@@ -298,6 +322,47 @@ def classify(ev, image_bytes, hosts=frozenset(), found=frozenset()):
     if vis == "public" and conf < PUBLIC_CONFIDENCE:
         return {"visibility": "private", "confidence": conf, "reason": f"Leaning public but not sure enough: {reason}", "source": "ai"}
     return {"visibility": vis if vis in ("public", "private") else "private", "confidence": conf, "reason": reason, "source": "ai"}
+
+
+# ---------- Live updates ----------
+
+def match_live(event_id, ev, pid, face_ids):
+    """Add a private photo to the gallery of every live guest whose face signature matches one of its faces."""
+    if not ev.get("live") or not face_ids:
+        return
+    found = {}
+    for fid in face_ids:
+        try:
+            resp = rekognition.search_faces(CollectionId=f"ev-{event_id}", FaceId=fid,
+                                            FaceMatchThreshold=LIVE_MATCH_THRESHOLD, MaxFaces=100)
+        except rekognition.exceptions.ResourceNotFoundException:
+            return
+        except ClientError as err:
+            print(f"live match failed for {pid}: {err}")
+            continue
+        for m in resp.get("FaceMatches", []):
+            ext = m["Face"].get("ExternalImageId", "")
+            if ext.startswith("live_"):
+                found[ext[5:]] = m["Face"]["FaceId"]
+    for live_id, face_id in found.items():
+        try:
+            table.update_item(Key={"pk": f"EVENT#{event_id}", "sk": f"LIVE#{live_id}"}, UpdateExpression="ADD photoIds :p",
+                              ConditionExpression="attribute_exists(pk) AND expiresAt > :now",
+                              ExpressionAttributeValues={":p": {pid}, ":now": int(time.time())})
+        except ClientError as err:
+            if err.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                raise
+            delete_faces(event_id, [face_id])  # the guest stopped live updates or their session ended
+    if found:
+        print(f"live: {pid} added for {len(found)} guest(s)")
+
+
+def delete_faces(event_id, ids):
+    for i in range(0, len(ids), 4096):
+        try:
+            rekognition.delete_faces(CollectionId=f"ev-{event_id}", FaceIds=ids[i:i + 4096])
+        except rekognition.exceptions.ResourceNotFoundException:
+            return
 
 
 # ---------- Helpers ----------

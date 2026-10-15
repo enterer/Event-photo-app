@@ -11,6 +11,16 @@ POST /e/{slug}/match {code, image}    -> guest selfie: match faces, start a sess
 GET  /e/{slug}/gallery (Bearer)       -> returning guest's gallery
 POST /e/{slug}/upload-urls {code, visibility, uploader, files} -> photographer upload slots (code = upload key)
 POST /e/{slug}/upload-guide {code}    -> sorting rules shown to the photographer
+POST /e/{slug}/live-off (Bearer)      -> guest stops live updates; their face signature is deleted
+
+Access: studio members (team) can do everything for their org. Event owners (the host,
+invited by email) can open only their own events and can't delete photos, change the upload key,
+invite others or edit branding. Hosts can also sign up on their own (org kind "host").
+
+Live photos: a guest who opts in has one face signature indexed into ev-<eventId> with
+ExternalImageId live_<liveId>; the processor matches new photos against it and adds them to
+EVENT#<eventId> / LIVE#<liveId>. The guest's session reads that list. Expired entries are cleaned up
+by the processor the next time a matching photo arrives, and with the collection on delete-all.
 
 Storage layout:
   incoming/<orgId>/<eventId>/<public|private|auto>/<uploader>/<rand>__<file>   written by photographers
@@ -50,8 +60,8 @@ MAX_PHOTO_BYTES = 80 * 1024 * 1024
 UPLOAD_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
 DEFAULT_RULES = """PUBLIC (every guest can see):
 - Venue, decor, flowers, cake, table settings and other details
-- Any photo with the main couple or hosts together (applied automatically once their faces are added)
-- Portraits of the couple or hosts
+- Any photo with the hosts together, such as a couple or a birthday person (applied automatically once their faces are added)
+- Portraits of the hosts
 - Wide shots of the ceremony, entrances, first dance or speeches where guests are part of the crowd
 - Large posed group photos that everyone lined up for
 
@@ -59,7 +69,7 @@ PRIVATE (only people in the photo can see):
 - Candid close-ups of guests
 - Small groups of guests, table shots, people eating or drinking
 - Dancing and party candids that focus on particular guests
-- Children without the couple or hosts
+- Children without the hosts
 - Anything unflattering, awkward, or that a guest might not want shared widely
 - Anything you are unsure about"""
 _list_cache = {}
@@ -88,6 +98,8 @@ def handler(event, _context):
             return guest_track(event_for_slug(params["slug"]), body(event))
         if route == "POST /e/{slug}/upload-urls":
             return upload_urls(event_for_slug(params["slug"]), body(event))
+        if route == "POST /e/{slug}/live-off":
+            return guest_live_off(event_for_slug(params["slug"]), event)
         if route == "POST /e/{slug}/upload-guide":
             ev = event_for_slug(params["slug"])
             check_code(body(event).get("code"), ev.get("uploadKeyHash"), "That upload code isn't right.")
@@ -96,12 +108,14 @@ def handler(event, _context):
 
         user = current_user(event)
         if route == "GET /me":
-            return respond(200, {"user": user, "orgs": orgs_for(user["id"])})
+            return respond(200, {"user": user, "orgs": orgs_for(user["id"]), "ownedEvents": owned_events(user)})
         if route == "POST /orgs":
             return create_org(user, body(event))
 
-        org_id = params.get("orgId", "")
-        require_member(user["id"], org_id)
+        org_id, event_id = params.get("orgId", ""), params.get("eventId")
+        role = access(user, org_id, event_id)
+        if role == "owner":
+            return owner_route(route, org_id, event_id, params, event)
         if route == "GET /orgs/{orgId}/events":
             return list_events(org_id)
         if route == "POST /orgs/{orgId}/events":
@@ -112,7 +126,7 @@ def handler(event, _context):
             return get_event(org_id, params["eventId"])
         if route in ("GET /orgs/{orgId}/events/{eventId}/{action}", "POST /orgs/{orgId}/events/{eventId}/{action}"):
             data = body(event) if route.startswith("POST") else {}
-            return manage.handle_event_action(ctx(), route.split(" ")[0], org_id, params["eventId"], params["action"], data)
+            return manage.handle_event_action(ctx(), route.split(" ")[0], org_id, params["eventId"], params["action"], data, role="team")
         if route == "GET /orgs/{orgId}/branding":
             return manage.get_branding(ctx(), org_id)
         if route == "PUT /orgs/{orgId}/branding":
@@ -130,7 +144,60 @@ def current_user(event):
     claims = (((event.get("requestContext") or {}).get("authorizer") or {}).get("jwt") or {}).get("claims") or {}
     if not claims.get("sub"):
         raise HttpError(401, "Sign in first.")
-    return {"id": claims["sub"], "email": claims.get("email", "")}
+    verified = str(claims.get("email_verified", "")).lower() == "true"
+    return {"id": claims["sub"], "email": str(claims.get("email", "")).strip().lower(), "emailVerified": verified}
+
+
+OWNER_ACTIONS = {
+    ("GET", "photos"), ("GET", "rules"), ("GET", "hosts"), ("GET", "stats"), ("GET", "details"), ("GET", "settings"),
+    ("POST", "visibility"), ("POST", "approve"), ("POST", "resort"), ("POST", "rules"), ("POST", "hosts"),
+    ("POST", "hosts-clear"), ("POST", "details"), ("POST", "settings"),
+}
+
+
+def access(user, org_id, event_id=None):
+    """'team' for members of the org, 'owner' for an invited event owner of this event; otherwise 404."""
+    if not re.fullmatch(r"[a-z0-9]{12}", org_id or ""):
+        raise HttpError(404, "Not found.")
+    if table.get_item(Key={"pk": f"ORG#{org_id}", "sk": f"USER#{user['id']}"}).get("Item"):
+        return "team"
+    if event_id and user["email"] and user["emailVerified"] and re.fullmatch(r"[a-z0-9]{12}", event_id):
+        link = table.get_item(Key={"pk": f"OWNER#{user['email']}", "sk": f"EVENT#{event_id}"}).get("Item")
+        if link and link.get("orgId") == org_id:
+            return "owner"
+    raise HttpError(404, "Not found.")  # don't reveal whether the org or event exists
+
+
+def owner_route(route, org_id, event_id, params, event):
+    if route == "GET /orgs/{orgId}/events/{eventId}":
+        return get_event(org_id, event_id, role="owner")
+    if route == "POST /orgs/{orgId}/events/{eventId}/new-code":
+        data = body(event)
+        if data.get("kind") != "guest":
+            raise HttpError(403, "Only the studio can change the photographer link.")
+        return new_code_for_event(org_id, event_id, data)
+    if route in ("GET /orgs/{orgId}/events/{eventId}/{action}", "POST /orgs/{orgId}/events/{eventId}/{action}"):
+        method = route.split(" ")[0]
+        if (method, params["action"]) not in OWNER_ACTIONS:
+            raise HttpError(403, "Ask your photographer to do this.")
+        data = body(event) if method == "POST" else {}
+        return manage.handle_event_action(ctx(), method, org_id, event_id, params["action"], data, role="owner")
+    raise HttpError(403, "Ask your photographer to do this.")
+
+
+def owned_events(user):
+    """Events this person was invited to as the host."""
+    if not user["email"] or not user["emailVerified"]:
+        return []
+    out = []
+    for link in table.query(KeyConditionExpression=Key("pk").eq(f"OWNER#{user['email']}"))["Items"]:
+        org_id, event_id = link.get("orgId", ""), link["sk"].split("#", 1)[1]
+        item = table.get_item(Key={"pk": f"ORG#{org_id}", "sk": f"EVENT#{event_id}"}).get("Item")
+        if item:
+            org = table.get_item(Key={"pk": f"ORG#{org_id}", "sk": "META"}).get("Item") or {}
+            out.append({**event_view(item), "role": "owner", "studio": org.get("name", "")})
+    out.sort(key=lambda e: e["startDate"], reverse=True)
+    return out
 
 
 def orgs_for(user_id):
@@ -139,7 +206,8 @@ def orgs_for(user_id):
     for item in items:
         org_id = item["sk"].split("#", 1)[1]
         meta = table.get_item(Key={"pk": f"ORG#{org_id}", "sk": "META"}).get("Item") or {}
-        out.append({"id": org_id, "name": meta.get("name", ""), "plan": meta.get("plan", "trial"), "role": item.get("role")})
+        out.append({"id": org_id, "name": meta.get("name", ""), "plan": meta.get("plan", "trial"), "role": item.get("role"),
+                    "kind": meta.get("kind", "studio")})
     return out
 
 
@@ -156,17 +224,18 @@ def require_member(user_id, org_id):
 
 def create_org(user, data):
     name = clean_text(data.get("name"), 80)
+    kind = "host" if data.get("kind") == "host" else "studio"
     if not name:
         raise HttpError(400, "Give the organisation a name.")
     org_id = new_id()
     now = int(time.time())
     with table.batch_writer() as batch:
-        batch.put_item(Item={"pk": f"ORG#{org_id}", "sk": "META", "name": name, "plan": "trial",
+        batch.put_item(Item={"pk": f"ORG#{org_id}", "sk": "META", "name": name, "plan": "trial", "kind": kind,
                              "createdAt": now, "createdBy": user["id"]})
         batch.put_item(Item={"pk": f"ORG#{org_id}", "sk": f"USER#{user['id']}", "role": "owner",
                              "email": user["email"], "createdAt": now})
         batch.put_item(Item={"pk": f"USER#{user['id']}", "sk": f"ORG#{org_id}", "role": "owner"})
-    return respond(201, {"id": org_id, "name": name, "plan": "trial", "role": "owner"})
+    return respond(201, {"id": org_id, "name": name, "plan": "trial", "role": "owner", "kind": kind})
 
 
 # ---------- Events ----------
@@ -235,13 +304,13 @@ def new_code_for_event(org_id, event_id, data):
     return respond(200, {"kind": kind, "uploadKey" if kind == "upload" else "guestCode": value})
 
 
-def get_event(org_id, event_id):
+def get_event(org_id, event_id, role="team"):
     if not re.fullmatch(r"[a-z0-9]{12}", event_id or ""):
         raise HttpError(404, "Not found.")
     item = table.get_item(Key={"pk": f"ORG#{org_id}", "sk": f"EVENT#{event_id}"}).get("Item")
     if not item:
         raise HttpError(404, "Not found.")
-    return respond(200, event_view(item))
+    return respond(200, {**event_view(item), "role": role})
 
 
 def public_event(slug):
@@ -254,9 +323,12 @@ def public_event(slug):
     org = table.get_item(Key={"pk": f"ORG#{link['orgId']}", "sk": "META"}).get("Item") or {}
     if item.get("status") != "active":
         raise HttpError(404, "Event not found.")
+    is_host = org.get("kind") == "host"
     return respond(200, {
         "name": item["name"], "startDate": item["startDate"], "endDate": item["endDate"],
-        "photosBy": org.get("name", ""), "branding": manage.public_branding(ctx(), link["orgId"]),
+        "photosBy": "" if is_host else org.get("name", ""),
+        "branding": {} if is_host else manage.public_branding(ctx(), link["orgId"]),
+        "details": manage.details_view(item), "live": bool(item.get("live")),
     })
 
 
@@ -323,24 +395,95 @@ def guest_match(ev, data):
         raise HttpError(422, "No face found. Face the camera in good light and try again.")
     except rekognition.exceptions.ResourceNotFoundException:
         result = {"FaceMatches": []}  # no private photos uploaded yet
-    private_ids = sorted({m["Face"]["ExternalImageId"] for m in result.get("FaceMatches", []) if m["Face"].get("ExternalImageId")})
+    private_ids = sorted({ext for m in result.get("FaceMatches", [])
+                          if (ext := m["Face"].get("ExternalImageId")) and not ext.startswith("live_")})
+
+    previous = str(data.get("previous") or "")
+    if previous:  # a retake replaces the guest's earlier live signature
+        old = table.get_item(Key={"pk": f"SESSION#{previous}", "sk": "META"}).get("Item")
+        if old and old.get("eventId") == event_id:
+            stop_live(event_id, old)
 
     token = secrets.token_urlsafe(32)
     now = int(time.time())
-    table.put_item(Item={"pk": f"SESSION#{token}", "sk": "META", "eventId": event_id, "privateIds": private_ids,
-                         "createdAt": now, "expiresAt": now + SESSION_DAYS * 86400})
-    bump(ev, statSelfies=1, statGuestsFound=1 if private_ids else 0)
-    return respond(200, {"token": token, **build_gallery(event_id, private_ids)})
+    expires = now + SESSION_DAYS * 86400
+    session = {"pk": f"SESSION#{token}", "sk": "META", "eventId": event_id, "privateIds": private_ids,
+               "createdAt": now, "expiresAt": expires}
+    live_on = False
+    if data.get("live") and ev.get("live"):
+        live_id = start_live(event_id, image_bytes, expires)
+        if live_id:
+            session["liveId"], live_on = live_id, True
+    table.put_item(Item=session)
+    bump(ev, statSelfies=1, statGuestsFound=1 if private_ids else 0, **({"statLiveGuests": 1} if live_on else {}))
+    return respond(200, {"token": token, **build_gallery(event_id, private_ids), "liveOn": live_on, "eventLive": bool(ev.get("live"))})
 
 
-def guest_gallery(ev, event):
+def start_live(event_id, image_bytes, expires):
+    """Keep one face signature (not the photo) so new photos of this guest are found as they arrive."""
+    live_id = secrets.token_hex(10)
+    kwargs = dict(CollectionId=f"ev-{event_id}", Image={"Bytes": image_bytes}, ExternalImageId=f"live_{live_id}",
+                  MaxFaces=1, QualityFilter="AUTO", DetectionAttributes=[])
+    try:
+        try:
+            resp = rekognition.index_faces(**kwargs)
+        except rekognition.exceptions.ResourceNotFoundException:
+            try:
+                rekognition.create_collection(CollectionId=f"ev-{event_id}")
+            except rekognition.exceptions.ResourceAlreadyExistsException:
+                pass
+            resp = rekognition.index_faces(**kwargs)
+    except ClientError as err:
+        print(f"live signup failed: {err}")
+        return None
+    faces = [r["Face"]["FaceId"] for r in resp.get("FaceRecords", [])]
+    if not faces:
+        return None
+    table.put_item(Item={"pk": f"EVENT#{event_id}", "sk": f"LIVE#{live_id}", "faceId": faces[0],
+                         "createdAt": int(time.time()), "expiresAt": expires})
+    return live_id
+
+
+def stop_live(event_id, session):
+    live_id = session.get("liveId")
+    if not live_id:
+        return
+    key = {"pk": f"EVENT#{event_id}", "sk": f"LIVE#{live_id}"}
+    item = table.get_item(Key=key).get("Item")
+    if item and item.get("faceId"):
+        try:
+            rekognition.delete_faces(CollectionId=f"ev-{event_id}", FaceIds=[item["faceId"]])
+        except ClientError as err:
+            print(f"live face delete failed: {err}")
+    table.delete_item(Key=key)
+    kept = sorted(set(session.get("privateIds") or []) | set((item or {}).get("photoIds") or []))  # keep what they already got
+    table.update_item(Key={"pk": session["pk"], "sk": "META"}, UpdateExpression="SET privateIds = :p REMOVE liveId",
+                      ExpressionAttributeValues={":p": kept})
+
+
+def session_for(ev, event):
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
     auth = headers.get("authorization", "")
     token = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
     item = token and table.get_item(Key={"pk": f"SESSION#{token}", "sk": "META"}).get("Item")
     if not item or item.get("eventId") != ev["eventId"] or int(item.get("expiresAt", 0)) < time.time():
         raise HttpError(401, "Take a selfie to see your photos.")
-    return respond(200, build_gallery(ev["eventId"], list(item.get("privateIds", []))))
+    return item
+
+
+def guest_live_off(ev, event):
+    stop_live(ev["eventId"], session_for(ev, event))
+    return respond(200, {"liveOn": False})
+
+
+def guest_gallery(ev, event):
+    item = session_for(ev, event)
+    ids = set(item.get("privateIds", []))
+    live_id = item.get("liveId")
+    if live_id:
+        live = table.get_item(Key={"pk": f"EVENT#{ev['eventId']}", "sk": f"LIVE#{live_id}"}).get("Item") or {}
+        ids |= set(live.get("photoIds") or [])
+    return respond(200, {**build_gallery(ev["eventId"], sorted(ids)), "liveOn": bool(live_id), "eventLive": bool(ev.get("live"))})
 
 
 def list_photo_ids(event_id, visibility):
@@ -405,7 +548,9 @@ def upload_urls(ev, data):
 
 
 def event_view(item):
-    return {k: item[k] for k in ("eventId", "name", "slug", "startDate", "endDate", "deleteAfter", "status", "createdAt") if k in item}
+    view = {k: item[k] for k in ("eventId", "name", "slug", "startDate", "endDate", "deleteAfter", "status", "createdAt") if k in item}
+    view.update(orgId=item["pk"].split("#", 1)[1], live=bool(item.get("live")), requireApproval=bool(item.get("requireApproval")))
+    return view
 
 
 # ---------- Helpers ----------

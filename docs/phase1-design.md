@@ -91,6 +91,7 @@ Guest and photographer-upload routes keep the wedding version's shape, with the 
 | 2 (Oct 15) | Port guest flow and processor with event scoping; per-event collections |
 | 3 (Oct 15) | Done: event tabs (share and QR, photos review, rules, hosts, stats) and studio branding |
 | Oct 15 | Done: landing page with sign in and sign up |
+| Oct 15 | Done: live photos, approval before publishing, event owner dashboards (invited or self-serve), event page details |
 | 4 (Oct 22) | Stripe checkout with per-event and monthly pricing; plan limits; WhatsApp share button |
 | Nov 5 to 21 | Light work only: bug fixes, docs, deletion job; wedding takes priority |
 | After Nov 21 | Beta with the wedding photographer; production account; security review |

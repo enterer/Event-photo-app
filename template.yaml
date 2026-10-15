@@ -143,7 +143,7 @@ Resources:
         - LambdaInvokePolicy: { FunctionName: !Ref ProcessorFunction }
         - Statement:
             - Effect: Allow
-              Action: [rekognition:SearchFacesByImage, rekognition:IndexFaces, rekognition:DeleteFaces,
+              Action: [rekognition:SearchFacesByImage, rekognition:SearchFaces, rekognition:IndexFaces, rekognition:DeleteFaces,
                        rekognition:ListFaces, rekognition:CreateCollection]
               Resource: !Sub arn:aws:rekognition:${AWS::Region}:${AWS::AccountId}:collection/ev-*
       Events:
@@ -265,6 +265,12 @@ Resources:
             ApiId: !Ref PlatformApi
             Path: /e/{slug}/upload-urls
             Method: POST
+        GuestLiveOff:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PlatformApi
+            Path: /e/{slug}/live-off
+            Method: POST
         UploadGuide:
           Type: HttpApi
           Properties:
@@ -295,7 +301,7 @@ Resources:
               Action: s3:ListBucket
               Resource: !Sub "arn:aws:s3:::${AWS::StackName}-mediabucket-*"
             - Effect: Allow
-              Action: [rekognition:IndexFaces, rekognition:CreateCollection, rekognition:SearchFacesByImage, rekognition:ListFaces,
+              Action: [rekognition:IndexFaces, rekognition:CreateCollection, rekognition:SearchFacesByImage, rekognition:SearchFaces, rekognition:ListFaces,
                        rekognition:DeleteFaces, rekognition:DeleteCollection]
               Resource: !Sub arn:aws:rekognition:${AWS::Region}:${AWS::AccountId}:collection/ev-*
             - Effect: Allow

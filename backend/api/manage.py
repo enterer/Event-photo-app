@@ -11,6 +11,15 @@ POST /orgs/{orgId}/events/{eventId}/rules         {rules}  save ("" = back to de
 POST /orgs/{orgId}/events/{eventId}/hosts         {name, image}  add a reference photo
 POST /orgs/{orgId}/events/{eventId}/hosts-clear   {name}
 POST /orgs/{orgId}/events/{eventId}/delete-all    {confirm, includeHosts}
+GET|POST /orgs/{orgId}/events/{eventId}/details    the event page guests see (hosts' names, venue, schedule...)
+GET|POST /orgs/{orgId}/events/{eventId}/settings   {live, requireApproval}
+POST /orgs/{orgId}/events/{eventId}/approve       {ids}  release photos held for approval
+GET  /orgs/{orgId}/events/{eventId}/owners        event owners (the host) with dashboard access
+POST /orgs/{orgId}/events/{eventId}/owners-add    {email}
+POST /orgs/{orgId}/events/{eventId}/owners-remove {email}
+
+Photos held for approval live under events/<eventId>/held/..., with the visibility they'll get in
+the record's "intended" field. Guests never see the held prefix.
 GET|PUT /orgs/{orgId}/branding, POST /orgs/{orgId}/branding-logo
 """
 import base64
@@ -26,6 +35,9 @@ from botocore.exceptions import ClientError
 PROCESSOR_FUNCTION = os.environ.get("PROCESSOR_FUNCTION", "")
 DELETE_PHRASE = "DELETE ALL PHOTOS"
 SIZES = ("original", "web", "thumb")
+VISIBILITIES = ("public", "private", "held")
+LIVE_MATCH_THRESHOLD = 95
+DETAIL_FIELDS = {"hosts": 120, "venue": 200, "welcome": 600, "schedule": 2000, "dressCode": 200}
 BRANDING_FIELDS = {"name": 80, "tagline": 140, "link": 300, "instagram": 60, "contact": 120}
 
 lambda_client = boto3.client("lambda")
@@ -39,14 +51,23 @@ class Ctx:
         self.list_cache, self.url_ttl = list_cache, url_ttl
 
 
-def handle_event_action(c, method, org_id, event_id, action, data):
+def handle_event_action(c, method, org_id, event_id, action, data, role="team"):
     ev = load_event(c, org_id, event_id)
+    who = "the host" if role == "owner" else "you"
     routes = {
+        ("GET", "details"): lambda: c.respond(200, details_view(ev)),
+        ("POST", "details"): lambda: save_details(c, ev, data),
+        ("GET", "settings"): lambda: c.respond(200, settings_view(ev)),
+        ("POST", "settings"): lambda: save_settings(c, ev, data),
+        ("POST", "approve"): lambda: approve(c, ev, data, who),
+        ("GET", "owners"): lambda: list_owners(c, ev),
+        ("POST", "owners-add"): lambda: add_owner(c, org_id, ev, data),
+        ("POST", "owners-remove"): lambda: remove_owner(c, ev, data),
         ("GET", "photos"): lambda: photos(c, ev),
         ("GET", "rules"): lambda: get_rules(c, ev),
         ("GET", "hosts"): lambda: host_counts(c, ev),
         ("GET", "stats"): lambda: stats(c, ev),
-        ("POST", "visibility"): lambda: move(c, ev, data),
+        ("POST", "visibility"): lambda: move(c, ev, data, who),
         ("POST", "delete-photos"): lambda: delete_photos(c, ev, data),
         ("POST", "resort"): lambda: resort(c, org_id, ev, data),
         ("POST", "rules"): lambda: save_rules(c, ev, data),
@@ -100,11 +121,12 @@ def photos(c, ev):
     eid = ev["eventId"]
     recs = records(c, eid)
     items = []
-    for vis in ("public", "private"):
+    for vis in VISIBILITIES:
         for pid in list_ids(c, eid, vis):
             r = recs.get(pid, {})
             items.append({
-                "id": pid, "visibility": vis, "source": r.get("source", "manual"), "reason": r.get("reason", ""),
+                "id": pid, "visibility": vis, "intended": r.get("intended", "private") if vis == "held" else vis,
+                "source": r.get("source", "manual"), "reason": r.get("reason", ""),
                 "confidence": float(r.get("confidence", 1)), "uploader": r.get("uploader", ""),
                 "faces": len(r.get("faceIds", [])), "createdAt": int(r.get("createdAt", 0)),
                 "thumb": presign(c, f"events/{eid}/{vis}/thumb/{pid}.jpg"),
@@ -164,37 +186,94 @@ def index_faces(c, event_id, image_bytes, pid):
 
 
 def forget_lists(c, event_id):
-    for vis in ("public", "private"):
+    for vis in VISIBILITIES:
         c.list_cache.pop((event_id, vis), None)
 
 
-def move(c, ev, data):
-    eid, pid, target = ev["eventId"], str(data.get("id", "")), data.get("visibility")
-    if target not in ("public", "private") or not valid_pid(pid):
-        raise c.Err(400, "Send a photo id and public or private.")
-    source = "private" if target == "public" else "public"
-    base = f"events/{eid}"
-    if not exists(c, f"{base}/{source}/thumb/{pid}.jpg"):
-        if exists(c, f"{base}/{target}/thumb/{pid}.jpg"):
-            return c.respond(200, {"id": pid, "visibility": target})
+def match_live(c, ev, pid, face_ids):
+    """Add a newly private photo to the galleries of guests who turned on live updates."""
+    if not ev.get("live"):
+        return
+    eid, found = ev["eventId"], {}
+    for fid in face_ids:
+        try:
+            resp = c.rek.search_faces(CollectionId=f"ev-{eid}", FaceId=fid, FaceMatchThreshold=LIVE_MATCH_THRESHOLD, MaxFaces=100)
+        except c.rek.exceptions.ResourceNotFoundException:
+            return
+        except ClientError as err:
+            print(f"live match failed: {err}")
+            continue
+        for m in resp.get("FaceMatches", []):
+            ext = m["Face"].get("ExternalImageId", "")
+            if ext.startswith("live_"):
+                found[ext[5:]] = m["Face"]["FaceId"]
+    for live_id, face_id in found.items():
+        try:
+            c.table.update_item(Key={"pk": f"EVENT#{eid}", "sk": f"LIVE#{live_id}"}, UpdateExpression="ADD photoIds :p",
+                                ConditionExpression="attribute_exists(pk) AND expiresAt > :now",
+                                ExpressionAttributeValues={":p": {pid}, ":now": int(time.time())})
+        except ClientError as err:
+            if err.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                raise
+            drop_faces(c, eid, [face_id])  # guest stopped or their session expired
+
+
+def current_place(c, eid, pid):
+    return next((v for v in VISIBILITIES if exists(c, f"events/{eid}/{v}/thumb/{pid}.jpg")), None)
+
+
+def relocate(c, ev, pid, target, updates):
+    """Move a photo between public, private and held, keeping faces and live galleries in step."""
+    eid, base = ev["eventId"], f"events/{ev['eventId']}"
+    source = current_place(c, eid, pid)
+    if not source:
         raise c.Err(404, "Photo not found.")
-    for size in SIZES:  # copy first so the photo is never missing
-        c.s3.copy_object(Bucket=c.bucket, CopySource={"Bucket": c.bucket, "Key": f"{base}/{source}/{size}/{pid}.jpg"},
-                         Key=f"{base}/{target}/{size}/{pid}.jpg", ContentType="image/jpeg", MetadataDirective="REPLACE")
     key = {"pk": f"EVENT#{eid}", "sk": f"PHOTO#{pid}"}
     rec = c.table.get_item(Key=key).get("Item") or {**key, "photoId": pid, "createdAt": int(time.time())}
-    if target == "private":
-        web = c.s3.get_object(Bucket=c.bucket, Key=f"{base}/private/web/{pid}.jpg")["Body"].read()
-        rec["faceIds"] = index_faces(c, eid, web, pid)
+    if source != target:
+        for size in SIZES:  # copy first so the photo is never missing
+            c.s3.copy_object(Bucket=c.bucket, CopySource={"Bucket": c.bucket, "Key": f"{base}/{source}/{size}/{pid}.jpg"},
+                             Key=f"{base}/{target}/{size}/{pid}.jpg", ContentType="image/jpeg", MetadataDirective="REPLACE")
+    face_side = rec.get("intended", "private") if target == "held" else target
+    if face_side == "private":
+        if not rec.get("faceIds"):
+            web = c.s3.get_object(Bucket=c.bucket, Key=f"{base}/{target}/web/{pid}.jpg")["Body"].read()
+            rec["faceIds"] = index_faces(c, eid, web, pid)
+            match_live(c, ev, pid, rec["faceIds"])
     else:
         drop_faces(c, eid, list(rec.get("faceIds") or []) or face_ids_for(c, eid, pid))
         rec["faceIds"] = []
-    for size in SIZES:
-        c.s3.delete_object(Bucket=c.bucket, Key=f"{base}/{source}/{size}/{pid}.jpg")
-    rec.update(visibility=target, source="you", reason=f"Moved to {target} by you", confidence="1")
+    if source != target:
+        for size in SIZES:
+            c.s3.delete_object(Bucket=c.bucket, Key=f"{base}/{source}/{size}/{pid}.jpg")
+    rec.update(visibility=target, **updates)
+    if target != "held":
+        rec.pop("intended", None)
     c.table.put_item(Item=rec)
     forget_lists(c, eid)
+    return target
+
+
+def move(c, ev, data, who="you"):
+    pid, target = str(data.get("id", "")), data.get("visibility")
+    if target not in ("public", "private") or not valid_pid(pid):
+        raise c.Err(400, "Send a photo id and public or private.")
+    if current_place(c, ev["eventId"], pid) == target:
+        return c.respond(200, {"id": pid, "visibility": target})
+    relocate(c, ev, pid, target, {"source": "you", "reason": f"Set to {target} by {who}", "confidence": "1"})
     return c.respond(200, {"id": pid, "visibility": target})
+
+
+def approve(c, ev, data, who="you"):
+    eid, done = ev["eventId"], []
+    for pid in id_list(c, data):
+        if current_place(c, eid, pid) != "held":
+            continue
+        rec = c.table.get_item(Key={"pk": f"EVENT#{eid}", "sk": f"PHOTO#{pid}"}).get("Item") or {}
+        target = rec.get("intended") if rec.get("intended") in ("public", "private") else "private"
+        relocate(c, ev, pid, target, {"approvedBy": who, "approvedAt": int(time.time())})
+        done.append({"id": pid, "visibility": target})
+    return c.respond(200, {"approved": done})
 
 
 def id_list(c, data, limit=100):
@@ -210,10 +289,10 @@ def delete_photos(c, ev, data):
         key = {"pk": f"EVENT#{eid}", "sk": f"PHOTO#{pid}"}
         rec = c.table.get_item(Key=key).get("Item") or {}
         faces = list(rec.get("faceIds") or [])
-        if not faces and exists(c, f"events/{eid}/private/thumb/{pid}.jpg"):
+        if not faces and current_place(c, eid, pid) in ("private", "held"):
             faces = face_ids_for(c, eid, pid)
         drop_faces(c, eid, faces)
-        objs = [{"Key": f"events/{eid}/{v}/{s}/{pid}.jpg"} for v in ("public", "private") for s in SIZES]
+        objs = [{"Key": f"events/{eid}/{v}/{s}/{pid}.jpg"} for v in VISIBILITIES for s in SIZES]
         c.s3.delete_objects(Bucket=c.bucket, Delete={"Objects": objs, "Quiet": True})
         c.table.delete_item(Key=key)
         deleted.append(pid)
@@ -341,7 +420,74 @@ def stats(c, ev):
         "selfies": int(ev.get("statSelfies", 0)), "guestsFound": int(ev.get("statGuestsFound", 0)),
         "downloads": int(ev.get("statDownloads", 0)), "photoViews": int(ev.get("statViews", 0)),
         "publicPhotos": len(list_ids(c, eid, "public")), "privatePhotos": len(list_ids(c, eid, "private")),
+        "heldPhotos": len(list_ids(c, eid, "held")), "liveGuests": int(ev.get("statLiveGuests", 0)),
     })
+
+
+# ---------- Event page details and settings ----------
+
+def details_view(ev):
+    d = dict(ev.get("details") or {})
+    return {k: str(d.get(k, "")) for k in DETAIL_FIELDS}
+
+
+def save_details(c, ev, data):
+    d = details_view(ev)
+    for field, limit in DETAIL_FIELDS.items():
+        if field in data:
+            text = str(data.get(field) or "").replace("\r\n", "\n").strip()
+            if field != "schedule" and field != "welcome":
+                text = re.sub(r"\s+", " ", text)
+            d[field] = text[:limit]
+    c.table.update_item(Key={"pk": ev["pk"], "sk": ev["sk"]}, UpdateExpression="SET details = :d", ExpressionAttributeValues={":d": d})
+    return c.respond(200, d)
+
+
+def settings_view(ev):
+    return {"live": bool(ev.get("live")), "requireApproval": bool(ev.get("requireApproval"))}
+
+
+def save_settings(c, ev, data):
+    for field in ("live", "requireApproval"):
+        if field in data:
+            ev[field] = bool(data[field])
+    c.table.update_item(Key={"pk": ev["pk"], "sk": ev["sk"]}, UpdateExpression="SET live = :l, requireApproval = :a",
+                        ExpressionAttributeValues={":l": bool(ev.get("live")), ":a": bool(ev.get("requireApproval"))})
+    return c.respond(200, settings_view(ev))
+
+
+# ---------- Event owners (the host) ----------
+
+EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$")
+
+
+def owner_email(c, data):
+    email = str(data.get("email", "")).strip().lower()
+    if len(email) > 254 or not EMAIL_RE.match(email):
+        raise c.Err(400, "Enter a valid email address.")
+    return email
+
+
+def list_owners(c, ev):
+    items = c.table.query(KeyConditionExpression=Key("pk").eq(f"EVENT#{ev['eventId']}") & Key("sk").begins_with("OWNER#"))["Items"]
+    return c.respond(200, {"owners": [{"email": i["sk"].split("#", 1)[1], "addedAt": int(i.get("createdAt", 0))} for i in items]})
+
+
+def add_owner(c, org_id, ev, data):
+    email, now, eid = owner_email(c, data), int(time.time()), ev["eventId"]
+    existing = c.table.query(KeyConditionExpression=Key("pk").eq(f"EVENT#{eid}") & Key("sk").begins_with("OWNER#"), Select="COUNT")
+    if existing.get("Count", 0) >= 6:
+        raise c.Err(400, "An event can have up to 6 owners.")
+    c.table.put_item(Item={"pk": f"EVENT#{eid}", "sk": f"OWNER#{email}", "orgId": org_id, "createdAt": now})
+    c.table.put_item(Item={"pk": f"OWNER#{email}", "sk": f"EVENT#{eid}", "orgId": org_id, "createdAt": now})
+    return list_owners(c, ev)
+
+
+def remove_owner(c, ev, data):
+    email, eid = owner_email(c, data), ev["eventId"]
+    c.table.delete_item(Key={"pk": f"EVENT#{eid}", "sk": f"OWNER#{email}"})
+    c.table.delete_item(Key={"pk": f"OWNER#{email}", "sk": f"EVENT#{eid}"})
+    return list_owners(c, ev)
 
 
 # ---------- Studio branding ----------

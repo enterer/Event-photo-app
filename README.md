@@ -4,8 +4,12 @@ Multi-event version of the wedding selfie photo app, for photographers and event
 
 **This repo never deploys to eu-west-1.** That region runs the wedding (`wedding-photos` stack, separate repo). The template refuses eu-west-1, and `scripts/deploy.sh` refuses the wedding region and stack name.
 
-## Status: week 3 + landing page
+## Status: week 3 + landing page + live photos + event owners
 
+- **Live photos**: an event setting. Guests' galleries check for new photos every 30 seconds; guests can opt in to "new photos of me", which keeps one face signature (`live_<id>` in the event's collection) until they stop, their session ends or the event's photos are deleted
+- **Approve before guests see them**: an event setting. New photos go to `events/<id>/held/` until approved in the Photos tab
+- **Event owners**: the studio invites the couple or host by email (Event owners tab, with a WhatsApp message). They sign up with that email and see only that event: event page, photos and approval, live settings, rules, hosts and stats; no deleting, no photographer link, no branding. Hosts can also sign up on their own ("I'm hosting my own event")
+- **Event page**: names, venue, welcome note, schedule and dress code, shown on the guest page
 - Landing page `index.html` (the first page visitors see): what the product does, privacy comparison, photographer features, pricing (placeholder prices), and Sign in / Get started buttons into the dashboard
 - Sign-in, studios, events (dashboard), with studio branding (name, logo, booking link, Instagram) shown to guests as "Photos by"
 - Event page tabs: **Share** (QR code with optional guest code, new photographer link or guest code), **Photos** (review queue: share or make private, ask AI again, delete one, re-sort failed ones, delete all), **Sorting rules**, **Hosts** (reference faces; photos with every host are shared automatically), **Stats** (selfies, guests found, downloads, views, photo counts)

@@ -138,6 +138,23 @@
   .lightbox img { max-width: 100%; max-height: calc(100dvh - 32px); object-fit: contain; }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 9px 16px; border-radius: 999px; font-size: 14px; z-index: 30; }
 
+  .kinds { display: grid; gap: 10px; margin: 0 0 18px; }
+  .kind { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; cursor: pointer; background: #fff; }
+  .kind:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .kind input { margin-top: 4px; accent-color: var(--accent); }
+  .kind b { display: block; }
+  .kind span { color: var(--muted); font-size: 13.5px; }
+  .badge.held { background: #fdf0d9; color: #8a5a00; }
+  .pill.owner { background: #fbe6ef; color: var(--accent); }
+  .toggle { display: flex; gap: 14px; align-items: flex-start; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .toggle:last-of-type { border-bottom: 0; }
+  .toggle input { width: 40px; height: 22px; flex: none; margin-top: 2px; accent-color: var(--accent); }
+  .toggle b { display: block; margin-bottom: 2px; }
+  .field textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font: inherit; min-height: 90px; }
+  .role-note { background: #fbe6ef; color: var(--ink); border-radius: 10px; padding: 10px 14px; font-size: 14px; margin: 0 0 14px; }
+  .ownerrow { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .invite-box { background: var(--code); border-radius: 8px; padding: 12px; font-size: 13.5px; white-space: pre-wrap; margin: 10px 0; }
+
   @media (max-width: 560px) {
     .event { grid-template-columns: 1fr; }
     .pill { justify-self: start; }
@@ -208,10 +225,14 @@
     <!-- First-time setup -->
     <section id="orgSetup" hidden>
       <div class="card" style="max-width:460px">
-        <h2>Set up your studio</h2>
-        <p class="lead" style="margin:-6px 0 16px">This name appears on your guests' photo pages as "Photos by".</p>
+        <h2>Welcome. Who are you setting up for?</h2>
         <form id="orgForm" novalidate>
-          <div class="field"><label for="orgName">Studio or business name</label><input id="orgName" maxlength="80" required></div>
+          <div class="kinds" role="radiogroup">
+            <label class="kind"><input type="radio" name="kind" value="studio" checked><div><b>I'm a photographer or event business</b><span>Run many events, put your studio's name and logo on every guest page.</span></div></label>
+            <label class="kind"><input type="radio" name="kind" value="host"><div><b>I'm hosting my own event</b><span>A wedding, birthday or party. Set up your event page and send the upload link to your photographer.</span></div></label>
+          </div>
+          <div class="field"><label for="orgName" id="orgNameLabel">Studio or business name</label><input id="orgName" maxlength="80" required>
+            <div class="hint" id="orgNameHint">Shown to guests as "Photos by".</div></div>
           <button class="btn accent" type="submit">Continue</button>
           <p class="msg" id="orgMsg" role="alert"></p>
         </form>
@@ -221,16 +242,19 @@
     <!-- Events list -->
     <section id="eventsView" hidden>
       <div class="head">
-        <div><h1>Events</h1><p id="eventsSummary"></p></div>
+        <div><h1 id="eventsTitle">Events</h1><p id="eventsSummary"></p></div>
         <button class="btn accent" type="button" id="newEventBtn">New event</button>
       </div>
       <div class="events" id="eventsList"></div>
+      <h2 id="ownedTitle" style="font:600 18px/1.2 var(--display);margin:28px 0 10px" hidden>Shared with you</h2>
+      <div class="events" id="ownedList"></div>
     </section>
 
     <!-- Event detail -->
     <section id="eventView" hidden>
       <button class="link back" type="button" id="backBtn">← All events</button>
       <div class="head"><div><h1 id="evName"></h1><p id="evDates"></p></div></div>
+      <p class="role-note" id="roleNote" hidden></p>
 
       <div class="secret" id="secretBox" hidden>
         <h3>Save these now</h3>
@@ -244,8 +268,11 @@
       <div class="tabbar" role="tablist" id="evTabs">
         <button role="tab" type="button" data-tab="share" aria-selected="true">Share</button>
         <button role="tab" type="button" data-tab="photos" aria-selected="false">Photos</button>
+        <button role="tab" type="button" data-tab="page" aria-selected="false">Event page</button>
+        <button role="tab" type="button" data-tab="live" aria-selected="false">Live &amp; approval</button>
         <button role="tab" type="button" data-tab="rules" aria-selected="false">Sorting rules</button>
         <button role="tab" type="button" data-tab="hosts" aria-selected="false">Hosts</button>
+        <button role="tab" type="button" data-tab="owners" aria-selected="false" data-team>Event owners</button>
         <button role="tab" type="button" data-tab="stats" aria-selected="false">Stats</button>
       </div>
 
@@ -274,7 +301,7 @@
             <h2 style="margin-top:20px">Lost a link?</h2>
             <p class="note" style="margin:0 0 12px">Make a new one. The old one stops working straight away, so send the new one to everyone who needs it.</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn ghost" type="button" id="newUploadBtn">New photographer link</button>
+              <button class="btn ghost" type="button" id="newUploadBtn" data-team>New photographer link</button>
               <button class="btn ghost" type="button" id="newGuestBtn">New guest code</button>
             </div>
             <p class="msg" id="newCodeMsg" role="alert"></p>
@@ -287,19 +314,72 @@
         <div class="toolbar">
           <div class="filters" id="photoFilters"></div>
           <div style="display:flex;gap:8px">
+            <button class="btn accent" type="button" id="approveAllBtn" hidden></button>
             <button class="btn accent" type="button" id="resortAllBtn" hidden></button>
             <button class="btn ghost" type="button" id="photosRefresh">Refresh</button>
           </div>
         </div>
         <p class="note" id="photosSummary" style="margin:0 0 12px"></p>
         <div class="pgrid" id="photoGrid"></div>
-        <div class="card danger-card" style="margin-top:28px">
+        <div class="card danger-card" style="margin-top:28px" data-team>
           <h2 style="color:var(--danger)">Delete all photos</h2>
           <p class="note">Permanently deletes every photo in this event (originals included), every guest's face data and every record. Guests see an empty gallery. Make sure the client has their own copies first.</p>
           <label style="display:flex;gap:8px;align-items:flex-start;margin:10px 0;font-size:14px"><input type="checkbox" id="delHosts" style="margin-top:4px"> <span>Also delete the hosts' reference photos</span></label>
           <div class="field" style="max-width:340px"><label for="delConfirm">Type DELETE ALL PHOTOS to confirm</label><input id="delConfirm" autocomplete="off"></div>
           <button class="btn danger" type="button" id="delAllBtn" disabled>Delete everything</button>
           <p class="msg" id="delMsg" role="status"></p>
+        </div>
+      </div>
+
+      <!-- Event page details -->
+      <div class="tabpanel" id="tab-page" hidden>
+        <div class="card" style="max-width:720px">
+          <h2>Event page</h2>
+          <p class="note" style="margin-top:-8px">Guests see this when they open the photo link or scan the QR code, before and during the event.</p>
+          <div class="row2b">
+            <div class="field"><label for="dHosts">Names shown at the top</label><input id="dHosts" maxlength="120" placeholder="e.g. Ada & Tobi"></div>
+            <div class="field"><label for="dVenue">Venue</label><input id="dVenue" maxlength="200" placeholder="e.g. Eko Hotel, Victoria Island"></div>
+          </div>
+          <div class="field"><label for="dWelcome">Welcome message</label><textarea id="dWelcome" maxlength="600" placeholder="e.g. Thank you for celebrating with us!"></textarea></div>
+          <div class="field"><label for="dSchedule">Schedule</label><textarea id="dSchedule" maxlength="2000" placeholder="One item per line, e.g.&#10;Fri 19 Nov, 4pm: Traditional engagement&#10;Sun 21 Nov, 1pm: Church ceremony, then reception"></textarea></div>
+          <div class="field"><label for="dDress">Dress code or colours</label><input id="dDress" maxlength="200" placeholder="e.g. Aso-ebi: emerald and gold"></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn accent" type="button" id="dSave">Save event page</button>
+            <a class="btn ghost" id="dPreview" target="_blank" rel="noopener">Preview guest page</a>
+          </div>
+          <p class="msg" id="dMsg" role="status"></p>
+        </div>
+      </div>
+
+      <!-- Live and approval -->
+      <div class="tabpanel" id="tab-live" hidden>
+        <div class="card" style="max-width:720px">
+          <h2>Live &amp; approval</h2>
+          <label class="toggle"><input type="checkbox" id="setLive"><div><b>Live photos during the event</b><span class="note">The photographer uploads as they shoot (from a laptop or phone, using the photographer link). Guests' galleries update by themselves, and guests can choose to get new photos of themselves without taking another selfie. Turn it off after the event.</span></div></label>
+          <label class="toggle"><input type="checkbox" id="setApproval"><div><b>Approve photos before guests see them</b><span class="note">New photos wait in the Photos tab under "Waiting for approval" until you or your photographer approve them. Guests see nothing until then. Turning this off doesn't release photos already waiting.</span></div></label>
+          <p class="msg" id="setMsg" role="status"></p>
+        </div>
+      </div>
+
+      <!-- Event owners -->
+      <div class="tabpanel" id="tab-owners" hidden>
+        <div class="card" style="max-width:720px">
+          <h2>Event owners</h2>
+          <p class="note" style="margin-top:-8px">Give the event host their own dashboard for this event. They can edit the event page, review and approve photos, add the hosts' faces, set the sorting rules, turn on live photos and see the stats. They can't delete photos, change the photographer link, or see your other events.</p>
+          <div id="ownerList"></div>
+          <div class="row2b" style="align-items:end;margin-top:12px">
+            <div class="field"><label for="ownerEmail">Their email</label><input id="ownerEmail" type="email" maxlength="254" placeholder="e.g. ada@example.com"></div>
+            <div class="field"><button class="btn" type="button" id="ownerAdd">Give access</button></div>
+          </div>
+          <p class="msg" id="ownerMsg" role="status"></p>
+          <div id="inviteWrap" hidden>
+            <p class="note" style="margin:0">Send them this message:</p>
+            <div class="invite-box" id="inviteText"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn ghost" type="button" id="inviteCopy">Copy message</button>
+              <a class="btn ghost" id="inviteWa" target="_blank" rel="noopener">Send on WhatsApp</a>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -321,7 +401,7 @@
       <div class="tabpanel" id="tab-hosts" hidden>
         <div class="card">
           <h2>Hosts</h2>
-          <p class="note">Add the people every guest should see, such as the bride and groom or the birthday person. Any unsorted photo with all of them in it is shared with everyone automatically, and the AI is told when one of them appears. Add 3 to 5 clear photos each: one person per photo, face large and in focus. Do this before the photographer uploads.</p>
+          <p class="note">Add the people every guest should see, such as the bride and groom, the birthday person or the guest of honour. Any unsorted photo with all of them in it is shared with everyone automatically, and the AI is told when one of them appears. Add 3 to 5 clear photos each: one person per photo, face large and in focus. Do this before the photographer uploads.</p>
           <div id="hostList"></div>
           <div class="row2b" style="margin-top:14px;align-items:end">
             <div class="field"><label for="hostName">Name</label><input id="hostName" maxlength="40" placeholder="e.g. bride, groom, tola"></div>
@@ -536,7 +616,7 @@
   }); });
 
   function signOut() {
-    idToken = null; idTokenExp = 0; org = null;
+    idToken = null; idTokenExp = 0; org = null; owned = [];
     store.del(REFRESH_KEY);
     $("appView").hidden = true; $("authView").hidden = false;
     showForm("signInForm");
@@ -545,50 +625,75 @@
   $("signOutBtn").addEventListener("click", signOut);
 
   // ---------- App ----------
-  let org = null, events = [];
+  let org = null, events = [], owned = [];
+  const isHost = () => org && org.kind === "host";
 
   async function enterApp() {
     $("authView").hidden = true; $("appView").hidden = false;
     $("userLabel").textContent = claims(idToken).email || "";
     const me = await api("/me");
-    if (!me.orgs.length) return showOnly("orgSetup");
-    org = me.orgs[0];
-    $("orgLabel").textContent = org.name;
+    org = me.orgs[0] || null;
+    owned = me.ownedEvents || [];
+    setOrgLabels();
+    if (!org && !owned.length) return showOnly("orgSetup");
     await loadEvents();
+  }
+  function setOrgLabels() {
+    $("orgLabel").textContent = org ? org.name : "";
+    $("brandingNavBtn").hidden = !org || isHost();
   }
   function showOnly(id) { ["orgSetup", "eventsView", "eventView", "brandingView"].forEach((s) => ($(s).hidden = s !== id)); window.scrollTo(0, 0); }
 
+  const chosenKind = () => document.querySelector("input[name=kind]:checked").value;
+  function syncKind() {
+    const host = chosenKind() === "host";
+    $("orgNameLabel").textContent = host ? "Your name" : "Studio or business name";
+    $("orgNameHint").textContent = host ? "Only you and anyone you invite see this." : 'Shown to guests as "Photos by".';
+  }
+  document.querySelectorAll("input[name=kind]").forEach((r) => r.addEventListener("change", syncKind));
   $("orgForm").addEventListener("submit", (e) => { e.preventDefault(); busy(e.target, async () => {
-    const name = $("orgName").value.trim();
-    if (!name) return say("orgMsg", "Enter your studio name.");
-    try { org = await api("/orgs", { method: "POST", body: JSON.stringify({ name }) }); $("orgLabel").textContent = org.name; await loadEvents(); }
-    catch (err) { say("orgMsg", err.message); }
+    const name = $("orgName").value.trim(), kind = chosenKind();
+    if (!name) return say("orgMsg", kind === "host" ? "Enter your name." : "Enter your studio name.");
+    try {
+      org = await api("/orgs", { method: "POST", body: JSON.stringify({ name, kind }) });
+      setOrgLabels(); await loadEvents();
+      if (kind === "host") openNewEvent();
+    } catch (err) { say("orgMsg", err.message); }
   }); });
 
   const fmt = (d) => new Date(d + "T12:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
   const range = (e) => e.startDate === e.endDate ? fmt(e.startDate) : `${fmt(e.startDate)} to ${fmt(e.endDate)}`;
   const isPast = (e) => new Date(e.endDate + "T23:59:59") < new Date();
 
+  function eventButton(ev) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "event";
+    const name = document.createElement("span"); name.className = "name"; name.textContent = ev.name;
+    const pill = document.createElement("span");
+    pill.className = "pill" + (ev.role === "owner" ? " owner" : isPast(ev) ? " past" : "");
+    pill.textContent = ev.live ? "Live" : isPast(ev) ? "Past" : "Upcoming";
+    const meta = document.createElement("span"); meta.className = "meta";
+    meta.textContent = ev.role === "owner" ? `${range(ev)} · with ${ev.studio || "your photographer"}` : `${range(ev)} · ${ev.slug}`;
+    b.append(name, pill, meta);
+    b.addEventListener("click", () => openEvent(ev));
+    return b;
+  }
   async function loadEvents() {
     showOnly("eventsView");
-    $("eventsList").innerHTML = "";
-    events = (await api(`/orgs/${org.id}/events`)).events;
+    $("eventsList").innerHTML = ""; $("ownedList").innerHTML = "";
+    events = org ? (await api(`/orgs/${org.id}/events`)).events : [];
+    $("eventsTitle").textContent = !org || isHost() ? "Your events" : "Events";
+    $("newEventBtn").textContent = org ? "New event" : "Create your own event";
     const upcoming = events.filter((e) => !isPast(e)).length;
     $("eventsSummary").textContent = events.length ? `${events.length} event${events.length === 1 ? "" : "s"}, ${upcoming} upcoming` : "";
-    if (!events.length) {
-      $("eventsList").innerHTML = '<div class="empty"><strong>No events yet</strong>Create your first event to get its guest link and codes.</div>';
-      return;
+    if (org && !events.length) {
+      $("eventsList").innerHTML = isHost()
+        ? '<div class="empty"><strong>Create your event</strong>Set up your event page, then send the upload link to your photographer.</div>'
+        : '<div class="empty"><strong>No events yet</strong>Create your first event to get its guest link and codes.</div>';
     }
-    events.forEach((ev) => {
-      const b = document.createElement("button");
-      b.type = "button"; b.className = "event";
-      const name = document.createElement("span"); name.className = "name"; name.textContent = ev.name;
-      const pill = document.createElement("span"); pill.className = "pill" + (isPast(ev) ? " past" : ""); pill.textContent = isPast(ev) ? "Past" : "Upcoming";
-      const meta = document.createElement("span"); meta.className = "meta"; meta.textContent = `${range(ev)} · ${ev.slug}`;
-      b.append(name, pill, meta);
-      b.addEventListener("click", () => openEvent(ev));
-      $("eventsList").appendChild(b);
-    });
+    events.forEach((ev) => $("eventsList").appendChild(eventButton(ev)));
+    $("ownedTitle").hidden = !owned.length || !org;
+    owned.forEach((ev) => $("ownedList").appendChild(eventButton(ev)));
   }
 
   const siteBase = () => (cfg.guestBaseUrl || location.origin + location.pathname.replace(/[^/]*$/, "")).replace(/\/?$/, "/");
@@ -606,7 +711,13 @@
     $("secretBox").scrollIntoView({ behavior: "smooth", block: "start" });
   }
   function openEvent(ev, secrets) {
-    currentEvent = ev;
+    currentEvent = { ...ev, orgId: ev.orgId || (org && org.id), role: ev.role || "team" };
+    ev = currentEvent;
+    firstLoad = true; photoFilter = "all";
+    const asOwner = ev.role === "owner";
+    document.querySelectorAll("[data-team]").forEach((el) => (el.hidden = asOwner));
+    $("roleNote").hidden = !asOwner;
+    $("roleNote").textContent = asOwner ? `${ev.studio || "Your photographer"} shared this event with you. You can edit the event page, review and approve photos, add the hosts' faces and turn on live photos.` : "";
     say("newCodeMsg", "");
     showOnly("eventView");
     $("evName").textContent = ev.name;
@@ -628,7 +739,7 @@
     const btn = $(kind === "upload" ? "newUploadBtn" : "newGuestBtn");
     btn.disabled = true;
     try {
-      const r = await api(`/orgs/${org.id}/events/${currentEvent.eventId}/new-code`, { method: "POST", body: JSON.stringify({ kind }) });
+      const r = await api(`/orgs/${currentEvent.orgId}/events/${currentEvent.eventId}/new-code`, { method: "POST", body: JSON.stringify({ kind }) });
       ["sGuest", "sUpload", "sGuestLink", "sUploadLink"].forEach((id) => ($(id).textContent = ""));
       showSecrets(currentEvent, r);
       say("newCodeMsg", `New ${label} ready. Copy it from the box above.`, "ok");
@@ -645,7 +756,11 @@
 
   // New event
   const dlg = $("eventDialog");
-  $("newEventBtn").addEventListener("click", () => { $("eventForm").reset(); say("edMsg", ""); dlg.showModal(); $("edName").focus(); });
+  function openNewEvent() { $("eventForm").reset(); say("edMsg", ""); dlg.showModal(); $("edName").focus(); }
+  $("newEventBtn").addEventListener("click", () => {
+    if (org) return openNewEvent();
+    document.querySelector("input[name=kind][value=host]").checked = true; syncKind(); showOnly("orgSetup");
+  });
   $("edCancel").addEventListener("click", () => dlg.close());
   $("edStart").addEventListener("change", () => { if (!$("edEnd").value || $("edEnd").value < $("edStart").value) $("edEnd").value = $("edStart").value; });
   $("eventForm").addEventListener("submit", (e) => { e.preventDefault(); busy(e.target, async () => {
@@ -660,7 +775,7 @@
   }); });
 
   // ---------- Event tabs ----------
-  const evApi = (action, opts) => api(`/orgs/${org.id}/events/${currentEvent.eventId}/${action}`, opts);
+  const evApi = (action, opts) => api(`/orgs/${currentEvent.orgId}/events/${currentEvent.eventId}/${action}`, opts);
   const post = (body) => ({ method: "POST", body: JSON.stringify(body) });
   let toastTimer;
   function toast(msg) { $("toast").textContent = msg; $("toast").hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => ($("toast").hidden = true), 3000); }
@@ -672,6 +787,9 @@
     if (name === "rules") loadRules();
     if (name === "hosts") loadHosts();
     if (name === "stats") loadStats();
+    if (name === "page") loadDetails();
+    if (name === "live") loadSettings();
+    if (name === "owners") loadOwners();
   }
   document.querySelectorAll("#evTabs button").forEach((b) => b.addEventListener("click", () => selectTab(b.dataset.tab)));
 
@@ -708,7 +826,9 @@
   const isPending = (p) => /^Re-sorting/.test(p.reason);
   const isStuck = (p) => /^AI sorting unavailable/.test(p.reason);
   const needsLook = (p) => p.source === "ai" && !isPending(p) && (p.confidence < 0.9 || isStuck(p) || /not sure/i.test(p.reason));
+  const isHeld = (p) => p.visibility === "held";
   const FILTERS = [
+    ["held", "Waiting for approval", isHeld],
     ["look", "Worth a look", needsLook], ["ai", "Sorted by AI", (p) => p.source === "ai"],
     ["public", "Public", (p) => p.visibility === "public"], ["private", "Private", (p) => p.visibility === "private"], ["all", "All", () => true],
   ];
@@ -721,12 +841,20 @@
     if (p.source === "you") return "Changed by you";
     return "Uploaded";
   }
+  let firstLoad = true;
   async function loadPhotos() {
-    try { photos = (await evApi("photos")).photos; renderPhotos(); } catch (err) { $("photosSummary").textContent = err.message; }
+    try {
+      photos = (await evApi("photos")).photos;
+      if (firstLoad && photos.some(isHeld)) photoFilter = "held";
+      firstLoad = false;
+      renderPhotos();
+    } catch (err) { $("photosSummary").textContent = err.message; }
   }
   function renderPhotos() {
-    const pub = photos.filter((p) => p.visibility === "public").length;
-    $("photosSummary").textContent = photos.length ? `${photos.length} photos: ${pub} shared with everyone, ${photos.length - pub} private.` : "";
+    const pub = photos.filter((p) => p.visibility === "public").length, held = photos.filter(isHeld).length;
+    $("photosSummary").textContent = photos.length ? `${photos.length} photos: ${pub} shared with everyone, ${photos.length - pub - held} private` + (held ? `, ${held} waiting for approval.` : ".") : "";
+    $("approveAllBtn").hidden = !held;
+    $("approveAllBtn").textContent = `Approve all ${held} waiting`;
     const stuck = photos.filter(isStuck).length;
     $("resortAllBtn").hidden = !stuck;
     $("resortAllBtn").textContent = `Re-sort ${stuck} with AI`;
@@ -756,7 +884,8 @@
     imgBtn.appendChild(img);
     imgBtn.addEventListener("click", () => { $("lightboxImg").src = p.web; $("lightbox").hidden = false; });
     const body = document.createElement("div"); body.className = "body";
-    const badge = document.createElement("span"); badge.className = `badge ${p.visibility}`; badge.textContent = p.visibility === "public" ? "Everyone" : "Private";
+    const badge = document.createElement("span"); badge.className = `badge ${p.visibility}`;
+    badge.textContent = isHeld(p) ? `Waiting · will be ${p.intended === "public" ? "shared" : "private"}` : p.visibility === "public" ? "Everyone" : "Private";
     const meta = document.createElement("div"); meta.className = "pmeta"; meta.textContent = [sourceLabel(p), p.uploader].filter(Boolean).join(" · ");
     body.append(badge, meta);
     if (p.reason) { const r = document.createElement("div"); r.className = "preason"; r.textContent = p.reason; r.title = p.reason; body.appendChild(r); }
@@ -765,11 +894,22 @@
     again.addEventListener("click", () => resort([p.id]));
     const del = document.createElement("button"); del.type = "button"; del.className = "link danger"; del.textContent = "Delete";
     del.addEventListener("click", () => removePhoto(p, el));
-    tools.append(again, del);
+    tools.append(again);
+    if (currentEvent.role !== "owner") tools.append(del);
     const flip = document.createElement("button"); flip.type = "button"; flip.className = "btn ghost flip";
-    const target = p.visibility === "public" ? "private" : "public";
-    flip.textContent = target === "public" ? "Share with everyone" : "Make private";
-    flip.addEventListener("click", () => movePhoto(p, target, el));
+    if (isHeld(p)) {
+      const other = p.intended === "public" ? "private" : "public";
+      const alt = document.createElement("button"); alt.type = "button"; alt.className = "link";
+      alt.textContent = other === "public" ? "Approve as shared" : "Approve as private";
+      alt.addEventListener("click", () => movePhoto(p, other, el));
+      tools.insertBefore(alt, tools.firstChild);
+      flip.className = "btn accent flip"; flip.textContent = "Approve";
+      flip.addEventListener("click", () => approvePhotos([p.id], el));
+    } else {
+      const target = p.visibility === "public" ? "private" : "public";
+      flip.textContent = target === "public" ? "Share with everyone" : "Make private";
+      flip.addEventListener("click", () => movePhoto(p, target, el));
+    }
     if (isPending(p)) { flip.disabled = true; again.disabled = true; }
     body.append(tools, flip);
     el.append(imgBtn, body);
@@ -780,6 +920,21 @@
     try { await evApi("visibility", post({ id: p.id, visibility: target })); toast(target === "public" ? "Now shared with every guest" : "Now private: only people in it see it"); await loadPhotos(); }
     catch (err) { el.classList.remove("busy"); toast(err.message); }
   }
+  async function approvePhotos(ids, el) {
+    if (el) el.classList.add("busy");
+    try {
+      let n = 0;
+      for (let i = 0; i < ids.length; i += 100) n += (await evApi("approve", post({ ids: ids.slice(i, i + 100) }))).approved.length;
+      toast(`${n} photo${n === 1 ? "" : "s"} approved. Guests can see ${n === 1 ? "it" : "them"} now.`);
+      await loadPhotos();
+    } catch (err) { if (el) el.classList.remove("busy"); toast(err.message); }
+  }
+  $("approveAllBtn").addEventListener("click", () => {
+    const ids = photos.filter(isHeld).map((p) => p.id);
+    if (ids.length && confirm(`Approve ${ids.length} photo${ids.length === 1 ? "" : "s"}? Each goes where the AI or photographer planned: shared with everyone or private.`)) {
+      $("approveAllBtn").disabled = true; approvePhotos(ids).finally(() => ($("approveAllBtn").disabled = false));
+    }
+  });
   async function removePhoto(p, el) {
     if (!confirm("Delete this photo for everyone, including the original? This can't be undone.")) return;
     el.classList.add("busy");
@@ -903,7 +1058,8 @@
       const s = await evApi("stats");
       $("statsBox").innerHTML = "";
       [[s.selfies, "selfies taken"], [s.guestsFound, "guests found in photos"], [s.downloads, "downloads"],
-       [s.photoViews, "photos opened"], [s.publicPhotos, "shared photos"], [s.privatePhotos, "private photos"]].forEach(([n, label]) => {
+       [s.photoViews, "photos opened"], [s.publicPhotos, "shared photos"], [s.privatePhotos, "private photos"],
+       [s.heldPhotos, "waiting for approval"], [s.liveGuests, "guests on live updates"]].forEach(([n, label]) => {
         const d = document.createElement("div"); d.className = "stat";
         const b = document.createElement("b"); b.textContent = n;
         const sp = document.createElement("span"); sp.textContent = label;
@@ -911,6 +1067,77 @@
       });
     } catch (err) { $("statsBox").textContent = err.message; }
   }
+
+  // Event page
+  const DETAILS = { hosts: "dHosts", venue: "dVenue", welcome: "dWelcome", schedule: "dSchedule", dressCode: "dDress" };
+  async function loadDetails() {
+    $("dPreview").href = guestLink(currentEvent); say("dMsg", "");
+    try { const d = await evApi("details"); Object.entries(DETAILS).forEach(([k, id]) => ($(id).value = d[k] || "")); }
+    catch (err) { say("dMsg", err.message); }
+  }
+  $("dSave").addEventListener("click", async () => {
+    const body = {}; Object.entries(DETAILS).forEach(([k, id]) => (body[k] = $(id).value));
+    $("dSave").disabled = true;
+    try { await evApi("details", post(body)); say("dMsg", "Saved. Guests see it on the photo page.", "ok"); }
+    catch (err) { say("dMsg", err.message); } finally { $("dSave").disabled = false; }
+  });
+
+  // Live and approval
+  async function loadSettings() {
+    say("setMsg", "");
+    try { const st = await evApi("settings"); $("setLive").checked = st.live; $("setApproval").checked = st.requireApproval; }
+    catch (err) { say("setMsg", err.message); }
+  }
+  ["setLive", "setApproval"].forEach((id) => $(id).addEventListener("change", async () => {
+    const body = { live: $("setLive").checked, requireApproval: $("setApproval").checked };
+    $(id).disabled = true;
+    try {
+      const st = await evApi("settings", post(body));
+      currentEvent.live = st.live; currentEvent.requireApproval = st.requireApproval;
+      say("setMsg", id === "setLive" ? (st.live ? "Live photos are on. Guests' galleries now update by themselves." : "Live photos are off.")
+                                     : (st.requireApproval ? "New photos now wait for approval." : "New photos go straight to guests."), "ok");
+    } catch (err) { $(id).checked = !$(id).checked; say("setMsg", err.message); }
+    finally { $(id).disabled = false; }
+  }));
+
+  // Event owners
+  function renderOwners(list) {
+    const box = $("ownerList"); box.innerHTML = "";
+    if (!list.length) { box.innerHTML = '<p class="note" style="margin:8px 0">Nobody yet.</p>'; return; }
+    list.forEach((o) => {
+      const row = document.createElement("div"); row.className = "ownerrow";
+      const label = document.createElement("span"); label.textContent = o.email;
+      const rm = document.createElement("button"); rm.type = "button"; rm.className = "link danger"; rm.textContent = "Remove access";
+      rm.addEventListener("click", async () => {
+        if (!confirm(`Remove ${o.email}'s access to this event?`)) return;
+        try { renderOwners((await evApi("owners-remove", post({ email: o.email }))).owners); } catch (err) { say("ownerMsg", err.message); }
+      });
+      row.append(label, rm); box.appendChild(row);
+    });
+  }
+  async function loadOwners() {
+    say("ownerMsg", ""); $("inviteWrap").hidden = true;
+    try { renderOwners((await evApi("owners")).owners); } catch (err) { say("ownerMsg", err.message); }
+  }
+  $("ownerAdd").addEventListener("click", async () => {
+    const email = $("ownerEmail").value.trim();
+    if (!email) return say("ownerMsg", "Enter their email.");
+    $("ownerAdd").disabled = true;
+    try {
+      renderOwners((await evApi("owners-add", post({ email }))).owners);
+      $("ownerEmail").value = "";
+      say("ownerMsg", "Access given.", "ok");
+      const studio = (org && org.name) || "your photographer";
+      const text = `Hi! ${studio} has set up your photo dashboard for ${currentEvent.name}. You can edit your event page, review and approve photos, and turn on live photos during the event.\n\nCreate your account with this email (${email}) here:\n${siteBase()}app.html#signup`;
+      $("inviteText").textContent = text;
+      $("inviteWa").href = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      $("inviteWrap").hidden = false;
+    } catch (err) { say("ownerMsg", err.message); }
+    finally { $("ownerAdd").disabled = false; }
+  });
+  $("inviteCopy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText($("inviteText").textContent); toast("Message copied"); } catch {}
+  });
 
   // ---------- Studio branding ----------
   const BRAND = { name: "bName", tagline: "bTagline", link: "bLink", instagram: "bInstagram", contact: "bContact" };

@@ -4,3 +4,6 @@ __pycache__/
 *.zip
 photos/
 .env
+# full-size stock originals and the photo preview stay local
+frontend/dashboard/img/stock/*.jpg
+frontend/dashboard/preview-photos.html

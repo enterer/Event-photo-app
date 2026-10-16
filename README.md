@@ -17,6 +17,10 @@ Multi-event version of the wedding selfie photo app, for photographers and event
 - Processor: resize, host recognition, AI sorting with the event's rules, per-event face collections, re-sort and delete-all jobs
 - `frontend/dashboard/qrcode.js` is qrcode-generator 1.4.4 by Kazuhiko Arase (MIT licence)
 
+## Landing page photos
+
+`frontend/dashboard/img/stock/sm/` holds small copies (about 30 KB each) of 20 photos used on the landing page, all free under the [Unsplash License](https://unsplash.com/license); the photographers are credited in the page footer. `scripts/get-stock-photos.sh` downloads full-size originals into `img/stock/` (ignored by git) if you need to re-crop them.
+
 ## Deploy (Git Bash)
 
 ```bash

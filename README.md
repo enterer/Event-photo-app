@@ -1,4 +1,4 @@
-# Event photo platform
+# YaPhoto (event photo platform)
 
 Multi-event version of the wedding selfie photo app, for photographers and event businesses. See `docs/phase1-design.md` for the full design and build order.
 
@@ -16,6 +16,15 @@ Multi-event version of the wedding selfie photo app, for photographers and event
 - Guest page `guest.html?e=<slug>` and photographer page `upload.html?e=<slug>#k=<upload key>`
 - Processor: resize, host recognition, AI sorting with the event's rules, per-event face collections, re-sort and delete-all jobs
 - `frontend/dashboard/qrcode.js` is qrcode-generator 1.4.4 by Kazuhiko Arase (MIT licence)
+
+## Upload-link emails (Amazon SES)
+
+When an event is created (or a new photographer link is made) the dashboard can email the upload link and code to up to 3 people. It needs two stack parameters, set in `samconfig.toml` under `parameter_overrides`:
+
+- `SenderEmail`: the address emails come from, verified in SES in us-east-1
+- `SiteUrl`: the Amplify site address, e.g. `https://main.d123abc.amplifyapp.com`
+
+While the SES account is in sandbox mode, every recipient must be verified too; request production access in the SES console to email anyone. Each organisation can send 50 invites a day.
 
 ## Landing page photos
 

@@ -3,9 +3,9 @@
 GET  /me                              -> the signed-in user and the orgs they belong to
 POST /orgs {name}                     -> create an organisation; caller becomes owner
 GET  /orgs/{orgId}/events             -> list the org's events
-POST /orgs/{orgId}/events {name, startDate, endDate?, slug?} -> create an event
+POST /orgs/{orgId}/events {name, startDate, endDate?, slug?, photographerEmails?} -> create an event; emails the upload link
 GET  /orgs/{orgId}/events/{eventId}   -> one event, with guest and upload links
-POST /orgs/{orgId}/events/{eventId}/new-code {kind: upload|guest} -> replace the upload key or guest code
+POST /orgs/{orgId}/events/{eventId}/new-code {kind: upload|guest, emails?} -> replace the upload key or guest code
 GET  /e/{slug}                        -> public event info for the guest page (no sign-in)
 POST /e/{slug}/match {code, image}    -> guest selfie: match faces, start a session, return the gallery
 GET  /e/{slug}/gallery (Bearer)       -> returning guest's gallery
@@ -42,6 +42,7 @@ from datetime import date, timedelta
 import boto3
 from boto3.dynamodb.conditions import Key
 
+import mailer
 import manage
 from botocore.config import Config
 from botocore.exceptions import ClientError
@@ -121,7 +122,7 @@ def handler(event, _context):
         if route == "POST /orgs/{orgId}/events":
             return create_event(org_id, body(event))
         if route == "POST /orgs/{orgId}/events/{eventId}/new-code":
-            return new_code_for_event(org_id, params["eventId"], body(event))
+            return new_code_for_event(org_id, params["eventId"], body(event), allow_email=True)
         if route == "GET /orgs/{orgId}/events/{eventId}":
             return get_event(org_id, params["eventId"])
         if route in ("GET /orgs/{orgId}/events/{eventId}/{action}", "POST /orgs/{orgId}/events/{eventId}/{action}"):
@@ -255,6 +256,7 @@ def create_event(org_id, data):
         raise HttpError(400, "Give the event a name.")
     if end < start:
         raise HttpError(400, "The end date is before the start date.")
+    recipients = mailer.parse_recipients(data.get("photographerEmails") or [], HttpError)
 
     event_id = new_id()
     slug = make_slug(data.get("slug") or name)
@@ -281,14 +283,23 @@ def create_event(org_id, data):
     view = event_view(item)
     view["guestCode"] = guest_code      # shown once; only the hash is stored
     view["uploadKey"] = upload_key
+    view["emailed"] = mailer.send_upload_invites(table, org_id, recipients, name, sender_name(org_id), slug, upload_key,
+                                                 item["startDate"], item["endDate"])
+    view["emailReady"] = mailer.configured()
     return respond(201, view)
 
 
-def new_code_for_event(org_id, event_id, data):
+def sender_name(org_id):
+    org = table.get_item(Key={"pk": f"ORG#{org_id}", "sk": "META"}).get("Item") or {}
+    return (org.get("branding") or {}).get("name") or org.get("name") or "Your client"
+
+
+def new_code_for_event(org_id, event_id, data, allow_email=False):
     """Replace the photographer upload key or the guest code. The old one stops working at once."""
     kind = data.get("kind")
     if kind not in ("upload", "guest"):
         raise HttpError(400, "Choose upload or guest.")
+    recipients = mailer.parse_recipients(data.get("emails") or [], HttpError) if (allow_email and kind == "upload") else []
     if not re.fullmatch(r"[a-z0-9]{12}", event_id or ""):
         raise HttpError(404, "Not found.")
     value = secrets.token_urlsafe(18) if kind == "upload" else new_code(8)
@@ -301,7 +312,12 @@ def new_code_for_event(org_id, event_id, data):
         if err.response["Error"]["Code"] == "ConditionalCheckFailedException":
             raise HttpError(404, "Not found.")
         raise
-    return respond(200, {"kind": kind, "uploadKey" if kind == "upload" else "guestCode": value})
+    out = {"kind": kind, "uploadKey" if kind == "upload" else "guestCode": value, "emailReady": mailer.configured()}
+    if recipients:
+        ev = table.get_item(Key={"pk": f"ORG#{org_id}", "sk": f"EVENT#{event_id}"}).get("Item") or {}
+        out["emailed"] = mailer.send_upload_invites(table, org_id, recipients, ev.get("name", ""), sender_name(org_id),
+                                                    ev.get("slug", ""), value, ev.get("startDate", ""), ev.get("endDate", ""))
+    return respond(200, out)
 
 
 def get_event(org_id, event_id, role="team"):

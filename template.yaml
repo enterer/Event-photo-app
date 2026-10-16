@@ -15,6 +15,14 @@ Parameters:
     Type: String
     Default: us.anthropic.claude-haiku-4-5-20251001-v1:0
     Description: Bedrock inference profile used to sort unsorted photos.
+  SenderEmail:
+    Type: String
+    Default: ""
+    Description: Address verified in SES (this region) that upload-link emails come from. Empty turns email off.
+  SiteUrl:
+    Type: String
+    Default: ""
+    Description: The dashboard site, e.g. https://main.d123abc.amplifyapp.com. Upload links in emails point here.
   PublicConfidence:
     Type: Number
     Default: 0.8
@@ -137,11 +145,19 @@ Resources:
           BUCKET: !Ref MediaBucket
           PROCESSOR_FUNCTION: !Ref ProcessorFunction
           STAGE: !Ref Stage
+          SENDER_EMAIL: !Ref SenderEmail
+          SITE_URL: !Ref SiteUrl
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref PlatformTable }
         - S3CrudPolicy: { BucketName: !Ref MediaBucket }
         - LambdaInvokePolicy: { FunctionName: !Ref ProcessorFunction }
         - Statement:
+            - Effect: Allow
+              Action: ses:SendEmail
+              Resource: "*"
+              Condition:
+                StringLike:
+                  ses:FromAddress: !Ref SenderEmail
             - Effect: Allow
               Action: [rekognition:SearchFacesByImage, rekognition:SearchFaces, rekognition:IndexFaces, rekognition:DeleteFaces,
                        rekognition:ListFaces, rekognition:CreateCollection]

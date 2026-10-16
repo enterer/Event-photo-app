@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>EventPhotos · Dashboard</title>
+<title>YaPhoto · Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
@@ -169,7 +169,7 @@
 
 <!-- ============ Signed out ============ -->
 <section class="auth" id="authView" hidden>
-  <a class="brand" href="index.html" style="text-decoration:none;color:inherit">Event<span>Photos</span></a>
+  <a class="brand" href="index.html" style="text-decoration:none;color:inherit">Ya<span>Photo</span></a>
   <p class="lead">Selfie-based photo delivery for your events.</p>
 
   <form class="card" id="signInForm" novalidate>
@@ -217,7 +217,7 @@
 <!-- ============ Signed in ============ -->
 <div id="appView" hidden>
   <header class="top">
-    <a class="brand" href="index.html" style="text-decoration:none;color:inherit">Event<span>Photos</span></a>
+    <a class="brand" href="index.html" style="text-decoration:none;color:inherit">Ya<span>Photo</span></a>
     <div class="who"><button class="link" type="button" id="brandingNavBtn">Studio branding</button><span class="org-name" id="orgLabel"></span><span id="userLabel"></span><button class="btn ghost" type="button" id="signOutBtn">Sign out</button></div>
   </header>
 
@@ -259,6 +259,7 @@
       <div class="secret" id="secretBox" hidden>
         <h3>Save these now</h3>
         <p>For security we only store a scrambled version, so this is the only time they're shown. Keep them in your password manager.</p>
+        <p class="msg" id="emailNote" role="status" hidden></p>
         <div class="copyrow" id="rowGuest"><label>Guest code</label><code id="sGuest"></code><button class="btn ghost" type="button" data-copy="sGuest">Copy</button></div>
         <div class="copyrow" id="rowUpload"><label>Upload key</label><code id="sUpload"></code><button class="btn ghost" type="button" data-copy="sUpload">Copy</button></div>
         <div class="copyrow" id="rowGuestLink"><label>Guest link + code</label><code id="sGuestLink"></code><button class="btn ghost" type="button" data-copy="sGuestLink">Copy</button></div>
@@ -300,6 +301,7 @@
             </dl>
             <h2 style="margin-top:20px">Lost a link?</h2>
             <p class="note" style="margin:0 0 12px">Make a new one. The old one stops working straight away, so send the new one to everyone who needs it.</p>
+            <div class="field" data-team><label for="newUploadEmails">Email the new photographer link to (optional)</label><input id="newUploadEmails" type="email" multiple maxlength="400" placeholder="e.g. photographer@studio.com" autocomplete="off"></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn ghost" type="button" id="newUploadBtn" data-team>New photographer link</button>
               <button class="btn ghost" type="button" id="newGuestBtn">New guest code</button>
@@ -457,6 +459,8 @@
     </div>
     <div class="field"><label for="edSlug">Guest link name (optional)</label><input id="edSlug" maxlength="40" placeholder="e.g. ada-and-tobi">
       <div class="hint">Letters, numbers and dashes. We add a short code to keep it unique.</div></div>
+    <div class="field"><label for="edEmails">Email the upload link to (optional)</label><input id="edEmails" type="email" multiple maxlength="400" placeholder="e.g. photographer@studio.com, planner@events.com" autocomplete="off">
+      <div class="hint">Your photographer or event planner gets the upload link and code by email. Up to 3 addresses, separated by commas.</div></div>
     <p class="msg err" id="edMsg" role="alert"></p>
     <div class="actions">
       <button class="btn ghost" type="button" id="edCancel">Cancel</button>
@@ -701,6 +705,19 @@
   function uploadLink(ev, key) { return `${siteBase()}upload.html?e=${ev.slug}#k=${encodeURIComponent(key)}`; }
 
   let currentEvent = null;
+  function showEmailResults(results, ready) {
+    const note = $("emailNote");
+    if (!results || !results.length) { note.hidden = true; return; }
+    const sent = results.filter((r) => r.sent).map((r) => r.email);
+    const failed = results.filter((r) => !r.sent);
+    const parts = [];
+    if (sent.length) parts.push(`Upload link and code emailed to ${sent.join(", ")}.`);
+    if (failed.length) parts.push(ready === false ? "Email isn't set up yet, so copy the link below and send it yourself."
+                                                   : failed.map((r) => `Not sent to ${r.email}: ${r.error}`).join(" "));
+    note.textContent = parts.join(" ");
+    note.className = "msg " + (failed.length ? "err" : "ok");
+    note.hidden = false;
+  }
   function showSecrets(ev, secrets) {
     const has = { Guest: !!secrets.guestCode, Upload: !!secrets.uploadKey };
     $("rowGuest").hidden = $("rowGuestLink").hidden = !has.Guest;
@@ -731,6 +748,7 @@
     $("evDelete").textContent = fmt(ev.deleteAfter);
     $("evId").textContent = ev.eventId;
     $("secretBox").hidden = true;
+    $("emailNote").hidden = true;
     if (secrets) showSecrets(ev, secrets);
   }
   async function newCode(kind) {
@@ -739,9 +757,16 @@
     const btn = $(kind === "upload" ? "newUploadBtn" : "newGuestBtn");
     btn.disabled = true;
     try {
-      const r = await api(`/orgs/${currentEvent.orgId}/events/${currentEvent.eventId}/new-code`, { method: "POST", body: JSON.stringify({ kind }) });
+      const req = { kind };
+      if (kind === "upload") {
+        const emails = $("newUploadEmails").value.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
+        if (emails.length) req.emails = emails;
+      }
+      const r = await api(`/orgs/${currentEvent.orgId}/events/${currentEvent.eventId}/new-code`, { method: "POST", body: JSON.stringify(req) });
       ["sGuest", "sUpload", "sGuestLink", "sUploadLink"].forEach((id) => ($(id).textContent = ""));
       showSecrets(currentEvent, r);
+      showEmailResults(r.emailed, r.emailReady);
+      if (r.emailed) $("newUploadEmails").value = "";
       say("newCodeMsg", `New ${label} ready. Copy it from the box above.`, "ok");
     } catch (err) { say("newCodeMsg", err.message); }
     finally { btn.disabled = false; }
@@ -765,12 +790,15 @@
   $("edStart").addEventListener("change", () => { if (!$("edEnd").value || $("edEnd").value < $("edStart").value) $("edEnd").value = $("edStart").value; });
   $("eventForm").addEventListener("submit", (e) => { e.preventDefault(); busy(e.target, async () => {
     const body = { name: $("edName").value.trim(), startDate: $("edStart").value, endDate: $("edEnd").value || $("edStart").value };
+    const emails = $("edEmails").value.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
+    if (emails.length) body.photographerEmails = emails;
     if ($("edSlug").value.trim()) body.slug = $("edSlug").value.trim();
     if (!body.name || !body.startDate) return say("edMsg", "Add a name and the first day.");
     try {
       const ev = await api(`/orgs/${org.id}/events`, { method: "POST", body: JSON.stringify(body) });
       dlg.close();
       openEvent(ev, { guestCode: ev.guestCode, uploadKey: ev.uploadKey });
+      showEmailResults(ev.emailed, ev.emailReady);
     } catch (err) { say("edMsg", err.message); }
   }); });
 

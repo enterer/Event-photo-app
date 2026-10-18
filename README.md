@@ -17,6 +17,14 @@ Multi-event version of the wedding selfie photo app, for photographers and event
 - Processor: resize, host recognition, AI sorting with the event's rules, per-event face collections, re-sort and delete-all jobs
 - `frontend/dashboard/qrcode.js` is qrcode-generator 1.4.4 by Kazuhiko Arase (MIT licence)
 
+## Plans: AI sorting and hi-res storage
+
+Each event has three settings (dashboard → event → Settings), which billing will control once it's built:
+
+- `aiSorting`: AI sorting plus host recognition. Every organisation's first event gets it free; later events start with it off. With it off, photos not put in the Shared folder stay private ("Not sorted yet") until someone shares them; bulk select in the Photos tab makes that quick.
+- `storageMode`: `window` (default for new events) keeps hi-res originals for `hiresDays` (7, 14 or 30) after each upload, then an S3 lifecycle rule deletes them by tag; screen-size copies stay for the whole event. `full` keeps originals for the event's life. Events created before this change behave as `full`.
+- Guests see Download (screen size) and Download hi-res while the original exists, then "Ask [studio] for hi-res" using the studio's contact email or link.
+
 ## Upload-link emails (Amazon SES)
 
 When an event is created (or a new photographer link is made) the dashboard can email the upload link and code to up to 3 people. It needs two stack parameters, set in `samconfig.toml` under `parameter_overrides`:

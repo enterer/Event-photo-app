@@ -138,6 +138,17 @@
   .lightbox img { max-width: 100%; max-height: calc(100dvh - 32px); object-fit: contain; }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 9px 16px; border-radius: 999px; font-size: 14px; z-index: 30; }
 
+  .pcard.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .pick { position: absolute; top: 8px; left: 8px; width: 22px; height: 22px; z-index: 2; accent-color: var(--accent); }
+  .bulkbar { position: sticky; bottom: 16px; z-index: 5; margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--ink); color: #fff; border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 30px rgba(18,26,43,.25); }
+  .bulkbar .count { font-weight: 600; margin-right: 6px; }
+  .bulkbar .btn { padding: 8px 12px; font-size: 14px; }
+  .bulkbar .btn.ghost { color: #fff; border-color: rgba(255,255,255,.35); }
+  .bulkbar .grow { flex: 1; }
+  select.uploader { border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; background: var(--panel); font: inherit; font-size: 13.5px; }
+  .radio { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; }
+  .radio input { margin-top: 4px; accent-color: var(--accent); }
+  .trial { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #fbe6ef; color: var(--accent); margin-left: 6px; }
   .kinds { display: grid; gap: 10px; margin: 0 0 18px; }
   .kind { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; cursor: pointer; background: #fff; }
   .kind:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
@@ -270,7 +281,7 @@
         <button role="tab" type="button" data-tab="share" aria-selected="true">Share</button>
         <button role="tab" type="button" data-tab="photos" aria-selected="false">Photos</button>
         <button role="tab" type="button" data-tab="page" aria-selected="false">Event page</button>
-        <button role="tab" type="button" data-tab="live" aria-selected="false">Live &amp; approval</button>
+        <button role="tab" type="button" data-tab="live" aria-selected="false">Settings</button>
         <button role="tab" type="button" data-tab="rules" aria-selected="false">Sorting rules</button>
         <button role="tab" type="button" data-tab="hosts" aria-selected="false">Hosts</button>
         <button role="tab" type="button" data-tab="owners" aria-selected="false" data-team>Event owners</button>
@@ -315,7 +326,9 @@
       <div class="tabpanel" id="tab-photos" hidden>
         <div class="toolbar">
           <div class="filters" id="photoFilters"></div>
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <select class="uploader" id="uploaderFilter" aria-label="Uploaded by" hidden></select>
+            <button class="btn ghost" type="button" id="selectBtn">Select</button>
             <button class="btn accent" type="button" id="approveAllBtn" hidden></button>
             <button class="btn accent" type="button" id="resortAllBtn" hidden></button>
             <button class="btn ghost" type="button" id="photosRefresh">Refresh</button>
@@ -323,6 +336,16 @@
         </div>
         <p class="note" id="photosSummary" style="margin:0 0 12px"></p>
         <div class="pgrid" id="photoGrid"></div>
+        <div class="bulkbar" id="bulkBar" hidden>
+          <span class="count" id="bulkCount">0 selected</span>
+          <button class="btn ghost" type="button" id="bulkAll">Select all shown</button>
+          <span class="grow"></span>
+          <button class="btn accent" type="button" id="bulkShare">Share with everyone</button>
+          <button class="btn ghost" type="button" id="bulkPrivate">Make private</button>
+          <button class="btn ghost" type="button" id="bulkApprove" hidden>Approve</button>
+          <button class="btn ghost" type="button" id="bulkDelete" data-team>Delete</button>
+          <button class="btn ghost" type="button" id="bulkDone">Done</button>
+        </div>
         <div class="card danger-card" style="margin-top:28px" data-team>
           <h2 style="color:var(--danger)">Delete all photos</h2>
           <p class="note">Permanently deletes every photo in this event (originals included), every guest's face data and every record. Guests see an empty gallery. Make sure the client has their own copies first.</p>
@@ -360,6 +383,17 @@
           <label class="toggle"><input type="checkbox" id="setLive"><div><b>Live photos during the event</b><span class="note">The photographer uploads as they shoot (from a laptop or phone, using the photographer link). Guests' galleries update by themselves, and guests can choose to get new photos of themselves without taking another selfie. Turn it off after the event.</span></div></label>
           <label class="toggle"><input type="checkbox" id="setApproval"><div><b>Approve photos before guests see them</b><span class="note">New photos wait in the Photos tab under "Waiting for approval" until you or your photographer approve them. Guests see nothing until then. Turning this off doesn't release photos already waiting.</span></div></label>
           <p class="msg" id="setMsg" role="status"></p>
+        </div>
+        <div class="card" style="max-width:720px;margin-top:14px" data-team>
+          <h2>Sorting and storage</h2>
+          <label class="toggle"><input type="checkbox" id="setAi"><div><b>AI sorting and host recognition <span class="trial" id="aiTrialTag" hidden>Free on your first event</span></b><span class="note">The AI decides which unsorted photos to share with everyone, using your sorting rules, and shares every photo with all the hosts in it. With it off, photos the photographer doesn't put in the Shared folder stay private until you share them from the Photos tab. Available on Plus and Studio Pro.</span></div></label>
+          <div class="toggle" style="display:block">
+            <b>Original photos</b>
+            <label class="radio"><input type="radio" name="storageMode" value="window"><span><b style="font-weight:500">Keep hi-res for a limited time</b><br><span class="note">Guests can download hi-res for <select id="setHiresDays" class="uploader"><option value="7">7</option><option value="14">14</option><option value="30">30</option></select> days after each upload, then the originals are deleted automatically. Screen-size photos (2560 px, fine for phones and 6×4 prints) stay for the whole event. After that, guests can ask you for hi-res.</span></span></label>
+            <label class="radio"><input type="radio" name="storageMode" value="full"><span><b style="font-weight:500">Keep originals for the whole event</b><br><span class="note">Guests can download full resolution until the event's photos are deleted.</span></span></label>
+            <p class="note" style="margin:6px 0 0">Changes apply to photos uploaded from now on.</p>
+          </div>
+          <p class="msg" id="tierMsg" role="status"></p>
         </div>
       </div>
 
@@ -730,7 +764,7 @@
   function openEvent(ev, secrets) {
     currentEvent = { ...ev, orgId: ev.orgId || (org && org.id), role: ev.role || "team" };
     ev = currentEvent;
-    firstLoad = true; photoFilter = "all";
+    firstLoad = true; photoFilter = "all"; uploaderFilter = ""; selectMode = false; selected.clear();
     const asOwner = ev.role === "owner";
     document.querySelectorAll("[data-team]").forEach((el) => (el.hidden = asOwner));
     $("roleNote").hidden = !asOwner;
@@ -857,6 +891,7 @@
   const isHeld = (p) => p.visibility === "held";
   const FILTERS = [
     ["held", "Waiting for approval", isHeld],
+    ["unsorted", "Not sorted yet", (p) => p.source === "unsorted" && p.visibility === "private"],
     ["look", "Worth a look", needsLook], ["ai", "Sorted by AI", (p) => p.source === "ai"],
     ["public", "Public", (p) => p.visibility === "public"], ["private", "Private", (p) => p.visibility === "private"], ["all", "All", () => true],
   ];
@@ -867,9 +902,11 @@
     if (p.source === "photographer") return "Photographer's folder";
     if (p.source === "hosts") return "Hosts recognised";
     if (p.source === "you") return "Changed by you";
+    if (p.source === "unsorted") return "Not sorted yet";
     return "Uploaded";
   }
-  let firstLoad = true;
+  let firstLoad = true, uploaderFilter = "", selectMode = false, shownIds = [];
+  const selected = new Set();
   async function loadPhotos() {
     try {
       photos = (await evApi("photos")).photos;
@@ -894,7 +931,18 @@
       b.addEventListener("click", () => { photoFilter = key; renderPhotos(); });
       $("photoFilters").appendChild(b);
     });
-    const shown = photos.filter(FILTERS.find(([k]) => k === photoFilter)[2]);
+    const uploaders = [...new Set(photos.map((p) => p.uploader).filter(Boolean))].sort();
+    const uf = $("uploaderFilter");
+    uf.hidden = uploaders.length < 2;
+    if (!uploaders.includes(uploaderFilter)) uploaderFilter = "";
+    uf.innerHTML = '<option value="">Everyone who uploaded</option>' + uploaders.map((u) => `<option></option>`).join("");
+    uploaders.forEach((u, i) => { uf.options[i + 1].value = u; uf.options[i + 1].textContent = `Uploaded by ${u}`; });
+    uf.value = uploaderFilter;
+    $("resortAllBtn").hidden = $("resortAllBtn").hidden || !currentEvent.aiSorting;
+    const shown = photos.filter(FILTERS.find(([k]) => k === photoFilter)[2]).filter((p) => !uploaderFilter || p.uploader === uploaderFilter);
+    shownIds = shown.map((p) => p.id);
+    [...selected].forEach((id) => { if (!photos.some((p) => p.id === id)) selected.delete(id); });
+    updateBulk();
     const grid = $("photoGrid");
     grid.innerHTML = "";
     if (!shown.length) {
@@ -905,12 +953,21 @@
   }
   function photoCard(p) {
     const el = document.createElement("article");
-    el.className = "pcard" + (needsLook(p) ? " look" : "");
+    el.className = "pcard" + (needsLook(p) ? " look" : "") + (selected.has(p.id) ? " sel" : "");
     const imgBtn = document.createElement("button");
     imgBtn.type = "button"; imgBtn.className = "img"; imgBtn.setAttribute("aria-label", "View larger");
     const img = document.createElement("img"); img.src = p.thumb; img.loading = "lazy"; img.alt = "";
     imgBtn.appendChild(img);
-    imgBtn.addEventListener("click", () => { $("lightboxImg").src = p.web; $("lightbox").hidden = false; });
+    imgBtn.addEventListener("click", () => {
+      if (selectMode) return toggleSel(p.id, el);
+      $("lightboxImg").src = p.web; $("lightbox").hidden = false;
+    });
+    if (selectMode) {
+      const box = document.createElement("input"); box.type = "checkbox"; box.className = "pick"; box.checked = selected.has(p.id);
+      box.setAttribute("aria-label", "Select photo");
+      box.addEventListener("click", (e) => { e.stopPropagation(); toggleSel(p.id, el); });
+      imgBtn.appendChild(box);
+    }
     const body = document.createElement("div"); body.className = "body";
     const badge = document.createElement("span"); badge.className = `badge ${p.visibility}`;
     badge.textContent = isHeld(p) ? `Waiting · will be ${p.intended === "public" ? "shared" : "private"}` : p.visibility === "public" ? "Everyone" : "Private";
@@ -922,7 +979,7 @@
     again.addEventListener("click", () => resort([p.id]));
     const del = document.createElement("button"); del.type = "button"; del.className = "link danger"; del.textContent = "Delete";
     del.addEventListener("click", () => removePhoto(p, el));
-    tools.append(again);
+    if (currentEvent.aiSorting) tools.append(again);
     if (currentEvent.role !== "owner") tools.append(del);
     const flip = document.createElement("button"); flip.type = "button"; flip.className = "btn ghost flip";
     if (isHeld(p)) {
@@ -948,6 +1005,48 @@
     try { await evApi("visibility", post({ id: p.id, visibility: target })); toast(target === "public" ? "Now shared with every guest" : "Now private: only people in it see it"); await loadPhotos(); }
     catch (err) { el.classList.remove("busy"); toast(err.message); }
   }
+  function toggleSel(id, el) {
+    if (selected.has(id)) selected.delete(id); else selected.add(id);
+    el.classList.toggle("sel", selected.has(id));
+    const box = el.querySelector(".pick"); if (box) box.checked = selected.has(id);
+    updateBulk();
+  }
+  function updateBulk() {
+    $("bulkBar").hidden = !selectMode;
+    $("selectBtn").textContent = selectMode ? "Cancel" : "Select";
+    const n = selected.size, picked = photos.filter((p) => selected.has(p.id));
+    $("bulkCount").textContent = `${n} selected`;
+    ["bulkShare", "bulkPrivate", "bulkDelete"].forEach((id) => ($(id).disabled = !n));
+    $("bulkApprove").hidden = !picked.some(isHeld);
+  }
+  function setSelectMode(on) { selectMode = on; if (!on) selected.clear(); renderPhotos(); }
+  $("selectBtn").addEventListener("click", () => setSelectMode(!selectMode));
+  $("bulkDone").addEventListener("click", () => setSelectMode(false));
+  $("bulkAll").addEventListener("click", () => { shownIds.forEach((id) => selected.add(id)); renderPhotos(); });
+  $("uploaderFilter").addEventListener("change", () => { uploaderFilter = $("uploaderFilter").value; renderPhotos(); });
+  async function inChunks(action, key, ids, extra = {}) {
+    let done = 0;
+    for (let i = 0; i < ids.length; i += 100) {
+      const r = await evApi(action, post({ ids: ids.slice(i, i + 100), ...extra }));
+      done += (r[key] || []).length;
+    }
+    return done;
+  }
+  async function bulk(fn, label) {
+    const ids = [...selected]; if (!ids.length) return;
+    $("bulkBar").querySelectorAll("button").forEach((b) => (b.disabled = true));
+    try { const n = await fn(ids); toast(label(n)); selected.clear(); await loadPhotos(); }
+    catch (err) { toast(err.message); }
+    finally { $("bulkBar").querySelectorAll("button").forEach((b) => (b.disabled = false)); updateBulk(); }
+  }
+  $("bulkShare").addEventListener("click", () => bulk((ids) => inChunks("visibility-bulk", "moved", ids, { visibility: "public" }), (n) => `${n} photo${n === 1 ? "" : "s"} shared with every guest`));
+  $("bulkPrivate").addEventListener("click", () => bulk((ids) => inChunks("visibility-bulk", "moved", ids, { visibility: "private" }), (n) => `${n} photo${n === 1 ? "" : "s"} now private`));
+  $("bulkApprove").addEventListener("click", () => bulk((ids) => inChunks("approve", "approved", photos.filter((p) => ids.includes(p.id) && isHeld(p)).map((p) => p.id)), (n) => `${n} approved`));
+  $("bulkDelete").addEventListener("click", () => {
+    const n = selected.size;
+    if (!confirm(`Delete ${n} photo${n === 1 ? "" : "s"} for everyone, originals included? This can't be undone.`)) return;
+    bulk((ids) => inChunks("delete-photos", "deleted", ids), (k) => `${k} deleted`);
+  });
   async function approvePhotos(ids, el) {
     if (el) el.classList.add("busy");
     try {
@@ -1113,9 +1212,26 @@
   // Live and approval
   async function loadSettings() {
     say("setMsg", "");
-    try { const st = await evApi("settings"); $("setLive").checked = st.live; $("setApproval").checked = st.requireApproval; }
+    say("tierMsg", "");
+    try { showSettings(await evApi("settings")); }
     catch (err) { say("setMsg", err.message); }
   }
+  function showSettings(st) {
+    $("setLive").checked = st.live; $("setApproval").checked = st.requireApproval;
+    $("setAi").checked = st.aiSorting; $("aiTrialTag").hidden = !st.aiTrial;
+    document.querySelectorAll("input[name=storageMode]").forEach((r) => (r.checked = r.value === st.storageMode));
+    $("setHiresDays").value = String(st.hiresDays || 14);
+    Object.assign(currentEvent, { live: st.live, requireApproval: st.requireApproval, aiSorting: st.aiSorting, storageMode: st.storageMode, hiresDays: st.hiresDays });
+  }
+  async function saveTier(body, msg) {
+    try { showSettings(await evApi("settings", post(body))); say("tierMsg", msg, "ok"); }
+    catch (err) { say("tierMsg", err.message); loadSettings(); }
+  }
+  $("setAi").addEventListener("change", () => saveTier({ aiSorting: $("setAi").checked },
+    $("setAi").checked ? "AI sorting is on for new uploads. Use Ask AI again for photos already uploaded." : "AI sorting is off. Unsorted photos now stay private until you share them."));
+  document.querySelectorAll("input[name=storageMode]").forEach((r) => r.addEventListener("change", () => saveTier({ storageMode: r.value },
+    r.value === "window" ? `Hi-res kept for ${$("setHiresDays").value} days after each upload.` : "Originals kept for the whole event.")));
+  $("setHiresDays").addEventListener("change", () => saveTier({ hiresDays: Number($("setHiresDays").value) }, `Hi-res kept for ${$("setHiresDays").value} days after each upload.`));
   ["setLive", "setApproval"].forEach((id) => $(id).addEventListener("change", async () => {
     const body = { live: $("setLive").checked, requireApproval: $("setApproval").checked };
     $(id).disabled = true;

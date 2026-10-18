@@ -151,7 +151,7 @@ def current_user(event):
 
 OWNER_ACTIONS = {
     ("GET", "photos"), ("GET", "rules"), ("GET", "hosts"), ("GET", "stats"), ("GET", "details"), ("GET", "settings"),
-    ("POST", "visibility"), ("POST", "approve"), ("POST", "resort"), ("POST", "rules"), ("POST", "hosts"),
+    ("POST", "visibility"), ("POST", "visibility-bulk"), ("POST", "approve"), ("POST", "resort"), ("POST", "rules"), ("POST", "hosts"),
     ("POST", "hosts-clear"), ("POST", "details"), ("POST", "settings"),
 }
 
@@ -278,7 +278,10 @@ def create_event(org_id, data):
         "startDate": start.isoformat(), "endDate": end.isoformat(), "deleteAfter": delete_after,
         "status": "active", "guestCodeHash": hash_secret(guest_code), "uploadKeyHash": hash_secret(upload_key),
         "createdAt": int(time.time()),
+        # Cheaper defaults: sort by hand, keep hi-res for 14 days. Every organisation's first event gets AI free.
+        "aiSorting": claim_ai_trial(org_id, event_id), "storageMode": "window", "hiresDays": 14,
     }
+    item["aiTrial"] = item["aiSorting"]
     table.put_item(Item=item)
     view = event_view(item)
     view["guestCode"] = guest_code      # shown once; only the hash is stored
@@ -287,6 +290,18 @@ def create_event(org_id, data):
                                                  item["startDate"], item["endDate"])
     view["emailReady"] = mailer.configured()
     return respond(201, view)
+
+
+def claim_ai_trial(org_id, event_id):
+    """True exactly once per organisation: its first event gets AI sorting free."""
+    try:
+        table.update_item(Key={"pk": f"ORG#{org_id}", "sk": "META"}, UpdateExpression="SET aiTrialEvent = :e",
+                          ConditionExpression="attribute_not_exists(aiTrialEvent)", ExpressionAttributeValues={":e": event_id})
+        return True
+    except ClientError as err:
+        if err.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            return False
+        raise
 
 
 def sender_name(org_id):
@@ -366,10 +381,11 @@ def bump(ev, **fields):
 def guest_track(ev, data):
     kind = data.get("type")
     token = str(data.get("token", ""))
-    if kind in ("download", "view") and token:
+    if kind in ("download", "view", "hires") and token:
         item = table.get_item(Key={"pk": f"SESSION#{token}", "sk": "META"}).get("Item")
         if item and item.get("eventId") == ev["eventId"]:
-            bump(ev, **({"statDownloads": 1} if kind == "download" else {"statViews": 1}))
+            field = {"download": "statDownloads", "view": "statViews", "hires": "statHiresDownloads"}[kind]
+            bump(ev, **{field: 1})
     return respond(200, {})
 
 
@@ -432,7 +448,7 @@ def guest_match(ev, data):
             session["liveId"], live_on = live_id, True
     table.put_item(Item=session)
     bump(ev, statSelfies=1, statGuestsFound=1 if private_ids else 0, **({"statLiveGuests": 1} if live_on else {}))
-    return respond(200, {"token": token, **build_gallery(event_id, private_ids), "liveOn": live_on, "eventLive": bool(ev.get("live"))})
+    return respond(200, {"token": token, **build_gallery(event_id, private_ids, ev), "liveOn": live_on, "eventLive": bool(ev.get("live"))})
 
 
 def start_live(event_id, image_bytes, expires):
@@ -499,16 +515,16 @@ def guest_gallery(ev, event):
     if live_id:
         live = table.get_item(Key={"pk": f"EVENT#{ev['eventId']}", "sk": f"LIVE#{live_id}"}).get("Item") or {}
         ids |= set(live.get("photoIds") or [])
-    return respond(200, {**build_gallery(ev["eventId"], sorted(ids)), "liveOn": bool(live_id), "eventLive": bool(ev.get("live"))})
+    return respond(200, {**build_gallery(ev["eventId"], sorted(ids), ev), "liveOn": bool(live_id), "eventLive": bool(ev.get("live"))})
 
 
-def list_photo_ids(event_id, visibility):
-    key = (event_id, visibility)
+def list_photo_ids(event_id, visibility, size="thumb"):
+    key = (event_id, visibility) if size == "thumb" else (event_id, visibility, size)
     cached = _list_cache.get(key)
     if cached and time.time() - cached[1] < 60:
         return cached[0]
     ids = []
-    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=BUCKET, Prefix=f"events/{event_id}/{visibility}/thumb/"):
+    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=BUCKET, Prefix=f"events/{event_id}/{visibility}/{size}/"):
         for obj in page.get("Contents", []):
             name = obj["Key"].rsplit("/", 1)[-1]
             if name.endswith(".jpg"):
@@ -517,22 +533,35 @@ def list_photo_ids(event_id, visibility):
     return ids
 
 
-def build_gallery(event_id, private_ids):
+def build_gallery(event_id, private_ids, ev=None):
+    ev = ev or {}
+    window = ev.get("storageMode") == "window"
     public_ids = list_photo_ids(event_id, "public")
     public_set, existing = set(public_ids), set(list_photo_ids(event_id, "private"))
     private_ids = [p for p in private_ids if p not in public_set and p in existing]
-    photos = [photo_entry(event_id, "public", p) for p in public_ids] + [photo_entry(event_id, "private", p) for p in private_ids]
+    originals = {v: set(list_photo_ids(event_id, v, "original")) for v in ("public", "private")}
+    photos = ([photo_entry(event_id, "public", p, window, p in originals["public"]) for p in public_ids]
+              + [photo_entry(event_id, "private", p, window, p in originals["private"]) for p in private_ids])
     photos.sort(key=lambda p: p["id"])
-    return {"photos": photos, "yourPhotoCount": len(private_ids), "publicCount": len(public_ids)}
+    return {"photos": photos, "yourPhotoCount": len(private_ids), "publicCount": len(public_ids),
+            "storageMode": "window" if window else "full", "hiresDays": int(ev.get("hiresDays", 14))}
 
 
-def photo_entry(event_id, visibility, pid):
-    def url(size, download=False):
+def photo_entry(event_id, visibility, pid, window=False, has_original=True):
+    """In window mode Download gives the screen-size copy and Hi-res the original while it's kept.
+    Otherwise Download gives the original (or the screen-size copy if there's none)."""
+    def url(size, download=False, suffix=""):
         params = {"Bucket": BUCKET, "Key": f"events/{event_id}/{visibility}/{size}/{pid}.jpg"}
         if download:
-            params["ResponseContentDisposition"] = f'attachment; filename="{pid}.jpg"'
+            params["ResponseContentDisposition"] = f'attachment; filename="{pid}{suffix}.jpg"'
         return s3.generate_presigned_url("get_object", Params=params, ExpiresIn=URL_TTL)
-    return {"id": pid, "yours": visibility == "private", "thumb": url("thumb"), "web": url("web"), "download": url("original", True)}
+    entry = {"id": pid, "yours": visibility == "private", "thumb": url("thumb"), "web": url("web")}
+    if window:
+        entry["download"] = url("web", True)
+        entry["hires"] = url("original", True, "-hires") if has_original else None
+    else:
+        entry["download"] = url("original", True) if has_original else url("web", True)
+    return entry
 
 
 # ---------- Photographer uploads ----------
@@ -565,7 +594,9 @@ def upload_urls(ev, data):
 
 def event_view(item):
     view = {k: item[k] for k in ("eventId", "name", "slug", "startDate", "endDate", "deleteAfter", "status", "createdAt") if k in item}
-    view.update(orgId=item["pk"].split("#", 1)[1], live=bool(item.get("live")), requireApproval=bool(item.get("requireApproval")))
+    view.update(orgId=item["pk"].split("#", 1)[1], live=bool(item.get("live")), requireApproval=bool(item.get("requireApproval")),
+                aiSorting=bool(item.get("aiSorting")), aiTrial=bool(item.get("aiTrial")),
+                storageMode=item.get("storageMode", "full"), hiresDays=int(item.get("hiresDays", 14)))
     return view
 
 

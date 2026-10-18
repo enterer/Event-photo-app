@@ -303,7 +303,11 @@
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Photo" hidden>
   <div class="lightbox-bar">
     <button type="button" id="closeBtn">Close</button>
-    <a id="downloadLink" href="#">Download</a>
+    <span style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end">
+      <a id="downloadLink" href="#">Download</a>
+      <a id="hiresLink" href="#" hidden>Download hi-res</a>
+      <a id="askHires" href="#" target="_blank" rel="noopener" hidden>Ask for hi-res</a>
+    </span>
   </div>
   <div class="lightbox-stage"><img id="lightboxImg" alt=""></div>
   <div class="lightbox-nav">
@@ -478,6 +482,7 @@
 
   function renderGallery(data, quiet) {
     photos = data.photos || [];
+    galleryMode = data.storageMode || "full";
     known = new Set(photos.map((p) => p.id));
     if ("eventLive" in data) eventLive = !!data.eventLive;
     liveOn = !!data.liveOn;
@@ -585,6 +590,14 @@
     store.del(TOKEN_KEY); photos = []; liveOn = false; clearTimeout(pollTimer); $("newPill").hidden = true; show("welcome");
   });
 
+  // Where guests can ask for hi-res once the event's hi-res window has ended.
+  let galleryMode = "full", hiresContact = null;
+  eventInfo.then((info) => {
+    const b = (info && info.branding) || {}, who = (info && info.photosBy) || b.name || "";
+    if (b.contact && /@/.test(b.contact)) hiresContact = { href: `mailto:${b.contact}?subject=${encodeURIComponent("Hi-res photos from " + (info.name || "the event"))}`, label: who ? `Ask ${who} for hi-res` : "Ask for hi-res" };
+    else if (b.link) hiresContact = { href: b.link, label: who ? `Ask ${who} for hi-res` : "Ask for hi-res" };
+  });
+
   // ---------- Photographer credit ----------
   (async () => {
     try {
@@ -628,6 +641,7 @@
     } catch {}
   }
   $("downloadLink").addEventListener("click", () => track("download"));
+  $("hiresLink").addEventListener("click", () => track("hires"));
 
   // ---------- Lightbox ----------
   let current = 0;
@@ -636,6 +650,12 @@
     const p = visible[i];
     $("lightboxImg").src = p.web;
     $("downloadLink").href = p.download;
+    // Hi-res is kept for a limited time on some events; afterwards guests can ask the photographer.
+    $("hiresLink").hidden = !p.hires;
+    if (p.hires) $("hiresLink").href = p.hires;
+    const ask = galleryMode === "window" && !p.hires && hiresContact;
+    $("askHires").hidden = !ask;
+    if (ask) { $("askHires").href = hiresContact.href; $("askHires").textContent = hiresContact.label; }
     track("view");
     $("prevBtn").disabled = i === 0;
     $("nextBtn").disabled = i === visible.length - 1;

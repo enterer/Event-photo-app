@@ -34,7 +34,7 @@ PUBLIC_CONFIDENCE = float(os.environ.get("PUBLIC_CONFIDENCE", "0.8"))
 HOST_MATCH_THRESHOLD = 90
 LIVE_MATCH_THRESHOLD = 95
 VISIBILITIES = ("public", "private", "held")
-MAX_FACES_CHECKED = 15
+MAX_FACES_CHECKED = 5   # the hosts are almost always among the largest faces; each check costs a Rekognition call
 
 retry = Config(retries={"max_attempts": 10, "mode": "adaptive"})
 s3 = boto3.client("s3", config=retry)
@@ -101,16 +101,20 @@ def process(bucket, key):
         img.save(buf, "JPEG", quality=95)
         original = buf.getvalue()
 
-    if folder == "auto":
+    if folder == "auto" and ev.get("aiSorting"):
         decision = decide(event_id, ev, img)
+    elif folder == "auto":  # AI sorting not on this event's plan: keep it private until someone shares it
+        decision = {"visibility": "private", "confidence": 1.0, "reason": "Not sorted yet: private until you share it", "source": "unsorted"}
     else:
         decision = {"visibility": folder, "confidence": 1.0, "reason": "Sorted by photographer", "source": "photographer"}
     intended = decision["visibility"]
     vis = "held" if ev.get("requireApproval") else intended
 
     face_ids = index_faces(event_id, web, pid) if intended == "private" else []
+    tagging = hires_tag(ev)
     for size, body in (("original", original), ("web", web), ("thumb", thumb)):  # thumb last = published
-        s3.put_object(Bucket=bucket, Key=f"{base}/{vis}/{size}/{pid}.jpg", Body=body, ContentType="image/jpeg")
+        extra = {"Tagging": tagging} if (size == "original" and tagging) else {}
+        s3.put_object(Bucket=bucket, Key=f"{base}/{vis}/{size}/{pid}.jpg", Body=body, ContentType="image/jpeg", **extra)
     record = {
         "pk": f"EVENT#{event_id}", "sk": f"PHOTO#{pid}", "photoId": pid, "visibility": vis,
         "source": decision["source"], "reason": decision["reason"][:500],
@@ -123,6 +127,14 @@ def process(bucket, key):
     match_live(event_id, ev, pid, face_ids)
     s3.delete_object(Bucket=bucket, Key=key)
     print(f"{key}: published {vis}{'/' + intended if vis == 'held' else ''} {pid} ({decision['source']}: {decision['reason']}), {len(face_ids)} face(s)")
+
+
+def hires_tag(ev):
+    """Originals of window-mode events carry a tag that an S3 lifecycle rule uses to delete them after 7, 14 or 30 days."""
+    if ev.get("storageMode") != "window":
+        return ""
+    days = int(ev.get("hiresDays", 14))
+    return f"yaphoto-hires={days if days in (7, 14, 30) else 14}d"
 
 
 def decide(event_id, ev, img):
@@ -168,6 +180,8 @@ def resort(bucket, org_id, event_id, pid):
 
     if target != current:
         for size in ("original", "web", "thumb"):
+            if size == "original" and not exists(bucket, f"{base}/{current}/original/{pid}.jpg"):
+                continue  # hi-res window has ended
             s3.copy_object(Bucket=bucket, CopySource={"Bucket": bucket, "Key": f"{base}/{current}/{size}/{pid}.jpg"},
                            Key=f"{base}/{target}/{size}/{pid}.jpg", ContentType="image/jpeg", MetadataDirective="REPLACE")
         if target == "private":
@@ -326,10 +340,16 @@ def classify(ev, image_bytes, hosts=frozenset(), found=frozenset()):
 
 # ---------- Live updates ----------
 
+def has_live_guests(event_id):
+    page = table.query(KeyConditionExpression=Key("pk").eq(f"EVENT#{event_id}") & Key("sk").begins_with("LIVE#"),
+                       Limit=1, ProjectionExpression="pk")
+    return bool(page.get("Items"))
+
+
 def match_live(event_id, ev, pid, face_ids):
     """Add a private photo to the gallery of every live guest whose face signature matches one of its faces."""
-    if not ev.get("live") or not face_ids:
-        return
+    if not ev.get("live") or not face_ids or not has_live_guests(event_id):
+        return  # nobody opted in: skip the per-face searches entirely
     found = {}
     for fid in face_ids:
         try:

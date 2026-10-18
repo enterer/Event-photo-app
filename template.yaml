@@ -81,6 +81,22 @@ Resources:
             Status: Enabled
             Prefix: incoming/
             ExpirationInDays: 7
+          # Hi-res originals of events in "window" mode; the processor tags them. Screen-size copies are untagged.
+          - Id: HiresWindow7
+            Status: Enabled
+            Prefix: events/
+            TagFilters: [{ Key: yaphoto-hires, Value: 7d }]
+            ExpirationInDays: 7
+          - Id: HiresWindow14
+            Status: Enabled
+            Prefix: events/
+            TagFilters: [{ Key: yaphoto-hires, Value: 14d }]
+            ExpirationInDays: 14
+          - Id: HiresWindow30
+            Status: Enabled
+            Prefix: events/
+            TagFilters: [{ Key: yaphoto-hires, Value: 30d }]
+            ExpirationInDays: 30
       CorsConfiguration:
         CorsRules:
           - AllowedMethods: [GET, POST]
@@ -150,6 +166,10 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref PlatformTable }
         - S3CrudPolicy: { BucketName: !Ref MediaBucket }
+        - Statement:
+            - Effect: Allow   # moving a photo keeps the hi-res expiry tag on its original
+              Action: [s3:GetObjectTagging, s3:PutObjectTagging]
+              Resource: !Sub "${MediaBucket.Arn}/*"
         - LambdaInvokePolicy: { FunctionName: !Ref ProcessorFunction }
         - Statement:
             - Effect: Allow
@@ -311,7 +331,7 @@ Resources:
         - Statement:
             # Bucket matched by name pattern to avoid a circular dependency with the bucket's notification.
             - Effect: Allow
-              Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+              Action: [s3:GetObject, s3:PutObject, s3:DeleteObject, s3:GetObjectTagging, s3:PutObjectTagging]
               Resource: !Sub "arn:aws:s3:::${AWS::StackName}-mediabucket-*/*"
             - Effect: Allow
               Action: s3:ListBucket

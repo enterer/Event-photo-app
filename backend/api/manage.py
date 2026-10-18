@@ -12,7 +12,8 @@ POST /orgs/{orgId}/events/{eventId}/hosts         {name, image}  add a reference
 POST /orgs/{orgId}/events/{eventId}/hosts-clear   {name}
 POST /orgs/{orgId}/events/{eventId}/delete-all    {confirm, includeHosts}
 GET|POST /orgs/{orgId}/events/{eventId}/details    the event page guests see (hosts' names, venue, schedule...)
-GET|POST /orgs/{orgId}/events/{eventId}/settings   {live, requireApproval}
+GET|POST /orgs/{orgId}/events/{eventId}/settings   {live, requireApproval, aiSorting*, storageMode*, hiresDays*}  (* studio only)
+POST /orgs/{orgId}/events/{eventId}/visibility-bulk {ids, visibility}  share or hide up to 100 photos at once
 POST /orgs/{orgId}/events/{eventId}/approve       {ids}  release photos held for approval
 GET  /orgs/{orgId}/events/{eventId}/owners        event owners (the host) with dashboard access
 POST /orgs/{orgId}/events/{eventId}/owners-add    {email}
@@ -36,6 +37,8 @@ PROCESSOR_FUNCTION = os.environ.get("PROCESSOR_FUNCTION", "")
 DELETE_PHRASE = "DELETE ALL PHOTOS"
 SIZES = ("original", "web", "thumb")
 VISIBILITIES = ("public", "private", "held")
+STORAGE_MODES = ("full", "window")   # full: keep originals for the event's whole life; window: hi-res for a few days only
+HIRES_DAYS = (7, 14, 30)             # must match the lifecycle rules in template.yaml
 LIVE_MATCH_THRESHOLD = 95
 DETAIL_FIELDS = {"hosts": 120, "venue": 200, "welcome": 600, "schedule": 2000, "dressCode": 200}
 BRANDING_FIELDS = {"name": 80, "tagline": 140, "link": 300, "instagram": 60, "contact": 120}
@@ -58,7 +61,8 @@ def handle_event_action(c, method, org_id, event_id, action, data, role="team"):
         ("GET", "details"): lambda: c.respond(200, details_view(ev)),
         ("POST", "details"): lambda: save_details(c, ev, data),
         ("GET", "settings"): lambda: c.respond(200, settings_view(ev)),
-        ("POST", "settings"): lambda: save_settings(c, ev, data),
+        ("POST", "settings"): lambda: save_settings(c, ev, data, role),
+        ("POST", "visibility-bulk"): lambda: move_many(c, ev, data, who),
         ("POST", "approve"): lambda: approve(c, ev, data, who),
         ("GET", "owners"): lambda: list_owners(c, ev),
         ("POST", "owners-add"): lambda: add_owner(c, org_id, ev, data),
@@ -232,6 +236,8 @@ def relocate(c, ev, pid, target, updates):
     rec = c.table.get_item(Key=key).get("Item") or {**key, "photoId": pid, "createdAt": int(time.time())}
     if source != target:
         for size in SIZES:  # copy first so the photo is never missing
+            if size == "original" and not exists(c, f"{base}/{source}/original/{pid}.jpg"):
+                continue  # hi-res window has ended; the screen-size copy moves on its own
             c.s3.copy_object(Bucket=c.bucket, CopySource={"Bucket": c.bucket, "Key": f"{base}/{source}/{size}/{pid}.jpg"},
                              Key=f"{base}/{target}/{size}/{pid}.jpg", ContentType="image/jpeg", MetadataDirective="REPLACE")
     face_side = rec.get("intended", "private") if target == "held" else target
@@ -262,6 +268,22 @@ def move(c, ev, data, who="you"):
         return c.respond(200, {"id": pid, "visibility": target})
     relocate(c, ev, pid, target, {"source": "you", "reason": f"Set to {target} by {who}", "confidence": "1"})
     return c.respond(200, {"id": pid, "visibility": target})
+
+
+def move_many(c, ev, data, who="you"):
+    target = data.get("visibility")
+    if target not in ("public", "private"):
+        raise c.Err(400, "Choose public or private.")
+    done, failed = [], []
+    for pid in id_list(c, data):
+        try:
+            if current_place(c, ev["eventId"], pid) != target:
+                relocate(c, ev, pid, target, {"source": "you", "reason": f"Set to {target} by {who}", "confidence": "1"})
+            done.append(pid)
+        except Exception as err:  # keep going; report what didn't move
+            print(f"bulk move {pid} failed: {err}")
+            failed.append(pid)
+    return c.respond(200, {"moved": done, "failed": failed, "visibility": target})
 
 
 def approve(c, ev, data, who="you"):
@@ -305,6 +327,8 @@ def invoke_processor(payload):
 
 
 def resort(c, org_id, ev, data):
+    if not ev.get("aiSorting"):
+        raise c.Err(403, "AI sorting is off for this event. Turn it on in Settings, or sort the photos yourself.")
     eid, started = ev["eventId"], 0
     for pid in id_list(c, data):
         c.table.update_item(Key={"pk": f"EVENT#{eid}", "sk": f"PHOTO#{pid}"},
@@ -421,6 +445,7 @@ def stats(c, ev):
         "downloads": int(ev.get("statDownloads", 0)), "photoViews": int(ev.get("statViews", 0)),
         "publicPhotos": len(list_ids(c, eid, "public")), "privatePhotos": len(list_ids(c, eid, "private")),
         "heldPhotos": len(list_ids(c, eid, "held")), "liveGuests": int(ev.get("statLiveGuests", 0)),
+        "hiresDownloads": int(ev.get("statHiresDownloads", 0)),
     })
 
 
@@ -444,15 +469,43 @@ def save_details(c, ev, data):
 
 
 def settings_view(ev):
-    return {"live": bool(ev.get("live")), "requireApproval": bool(ev.get("requireApproval"))}
+    return {"live": bool(ev.get("live")), "requireApproval": bool(ev.get("requireApproval")),
+            "aiSorting": bool(ev.get("aiSorting")), "aiTrial": bool(ev.get("aiTrial")),
+            "storageMode": ev.get("storageMode", "full"), "hiresDays": int(ev.get("hiresDays", 14))}
 
 
-def save_settings(c, ev, data):
+def save_settings(c, ev, data, role="team"):
     for field in ("live", "requireApproval"):
         if field in data:
             ev[field] = bool(data[field])
-    c.table.update_item(Key={"pk": ev["pk"], "sk": ev["sk"]}, UpdateExpression="SET live = :l, requireApproval = :a",
-                        ExpressionAttributeValues={":l": bool(ev.get("live")), ":a": bool(ev.get("requireApproval"))})
+    names, values = {"#l": "live", "#a": "requireApproval"}, {":l": bool(ev.get("live")), ":a": bool(ev.get("requireApproval"))}
+    sets = ["#l = :l", "#a = :a"]
+    paid = [f for f in ("aiSorting", "storageMode", "hiresDays") if f in data]
+    if paid and role != "team":
+        raise c.Err(403, "Ask your photographer to change this.")
+    if "aiSorting" in data:
+        # Billing will gate this once plans are live; for now any studio member can switch it.
+        ev["aiSorting"] = bool(data["aiSorting"])
+        names["#ai"], values[":ai"] = "aiSorting", ev["aiSorting"]
+        sets.append("#ai = :ai")
+    if "storageMode" in data:
+        if data["storageMode"] not in STORAGE_MODES:
+            raise c.Err(400, "Choose full or window.")
+        ev["storageMode"] = data["storageMode"]
+        names["#sm"], values[":sm"] = "storageMode", ev["storageMode"]
+        sets.append("#sm = :sm")
+    if "hiresDays" in data:
+        try:
+            days = int(data["hiresDays"])
+        except (TypeError, ValueError):
+            days = 0
+        if days not in HIRES_DAYS:
+            raise c.Err(400, "Keep hi-res photos for 7, 14 or 30 days.")
+        ev["hiresDays"] = days
+        names["#hd"], values[":hd"] = "hiresDays", days
+        sets.append("#hd = :hd")
+    c.table.update_item(Key={"pk": ev["pk"], "sk": ev["sk"]}, UpdateExpression="SET " + ", ".join(sets),
+                        ExpressionAttributeNames=names, ExpressionAttributeValues=values)
     return c.respond(200, settings_view(ev))
 
 
